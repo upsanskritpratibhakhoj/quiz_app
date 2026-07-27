@@ -5,6 +5,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { COLORS, TYPOGRAPHY, RADII, SPACING } from "../constants/theme";
 import Mascot from "../components/ui/Mascot";
 import Button from "../components/ui/Button";
+import TopStatsBar from "../components/ui/TopStatsBar";
 
 const LANGUAGE_NAMES: Record<string, string> = {
   es: "Spanish",
@@ -34,13 +35,10 @@ export default function Dashboard() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Top Stats Bar */}
+      <TopStatsBar title="My Learning Plan" />
       <View style={styles.container}>
         
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Learning Plan</Text>
-        </View>
-
         {/* Content */}
         <View style={styles.content}>
           <Mascot expression="excited" size={150} style={styles.mascot} />

@@ -7,6 +7,8 @@ import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Mascot from "../components/ui/Mascot";
 import { BAL_VARG_CATEGORIES, YUVA_VARG_CATEGORIES } from "../constants/quizCategories";
+import TopStatsBar from "../components/ui/TopStatsBar";
+
 
 export default function CategoriesScreen() {
   const params = useLocalSearchParams();
@@ -18,37 +20,23 @@ export default function CategoriesScreen() {
 
   const handleStartLesson = () => {
     if (!selectedCategory) return;
-    Alert.alert(
-      "शुरुआत करें! 🚀",
-      `Are you ready to practice "${selectedCategory}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Let's Go",
-          onPress: () => {
-            // Placeholder for next logic, or back to dashboard
-            router.replace("/dashboard");
-          },
-        },
-      ]
-    );
+    router.push({
+      pathname: "/exerciseSelection",
+      params: {
+        category: selectedCategory,
+        pathSelection: pathSelection,
+      },
+    });
   };
 
   return (
     <SafeAreaView style={styles.safe}>
+      <TopStatsBar
+        title={isBeginner ? "बाल वर्ग (6-12)" : "युवा वर्ग (B.A.-M.A.)"}
+        onBack={() => router.back()}
+      />
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Button
-            title="← Back"
-            variant="ghost"
-            onPress={() => router.back()}
-            style={styles.backButton}
-          />
-          <Text style={styles.headerTitle}>
-            {isBeginner ? "बाल वर्ग (6-12)" : "युवा वर्ग (B.A.-M.A.)"}
-          </Text>
-          <View style={{ width: 80 }} />
-        </View>
+
 
         <View style={styles.mascotSection}>
           <Mascot expression="guiding" size={80} style={styles.mascot} />
