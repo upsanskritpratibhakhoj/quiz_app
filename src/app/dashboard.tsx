@@ -84,8 +84,10 @@ export default function Dashboard() {
             title="Start First Lesson"
             variant="primary"
             onPress={() => {
-              // Reset and restart onboarding for demo purposes
-              router.replace("/");
+              router.push({
+                pathname: "/categories",
+                params: { pathSelection },
+              });
             }}
           />
         </View>
