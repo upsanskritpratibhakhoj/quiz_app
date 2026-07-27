@@ -1,17 +1,25 @@
-import { Text, View, StyleSheet } from "react-native";
+import React from "react";
+import { router } from "expo-router";
+import OnboardingContainer from "../components/onboarding/OnboardingContainer";
 
 export default function Index() {
-  return (
-    <View style={styles.container}>
-      <Text>Edit src/app/index.tsx to edit this screen.</Text>
-    </View>
-  );
-}
+  const handleOnboardingComplete = (data: {
+    language: string;
+    motivation: string;
+    dailyGoal: number;
+    pathSelection: string;
+  }) => {
+    // Navigate to dashboard and pass the chosen options as parameters
+    router.replace({
+      pathname: "/dashboard",
+      params: {
+        language: data.language,
+        motivation: data.motivation,
+        dailyGoal: data.dailyGoal.toString(),
+        pathSelection: data.pathSelection,
+      },
+    });
+  };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
+  return <OnboardingContainer onComplete={handleOnboardingComplete} />;
+}
