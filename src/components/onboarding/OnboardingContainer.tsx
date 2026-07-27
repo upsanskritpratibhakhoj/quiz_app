@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { StyleSheet, View, SafeAreaView } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../constants/theme";
 import ProgressBar from "../ui/ProgressBar";
 
 import StepWelcome from "./StepWelcome";
-import StepLanguage from "./StepLanguage";
 import StepMotivation from "./StepMotivation";
 import StepGoal from "./StepGoal";
 import StepPath from "./StepPath";
@@ -16,15 +16,6 @@ interface OnboardingData {
   pathSelection: "beginner" | "placement" | "";
 }
 
-const LANGUAGE_NAMES: Record<string, string> = {
-  es: "Spanish",
-  fr: "French",
-  de: "German",
-  jp: "Japanese",
-  it: "Italian",
-  kr: "Korean",
-};
-
 interface OnboardingContainerProps {
   onComplete: (data: OnboardingData) => void;
 }
@@ -32,14 +23,14 @@ interface OnboardingContainerProps {
 export default function OnboardingContainer({ onComplete }: OnboardingContainerProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<OnboardingData>({
-    language: "",
+    language: "sanskrit", // Default language to Sanskrit
     motivation: "",
     dailyGoal: 10, // default 10 minutes
     pathSelection: "",
   });
 
   const nextStep = () => {
-    if (currentStep === 4) {
+    if (currentStep === 3) {
       onComplete(data);
     } else {
       setCurrentStep((prev) => prev + 1);
@@ -56,8 +47,6 @@ export default function OnboardingContainer({ onComplete }: OnboardingContainerP
     setData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const selectedLanguageName = LANGUAGE_NAMES[data.language] || "";
-
   // Render correct step body
   const renderStepContent = () => {
     switch (currentStep) {
@@ -65,22 +54,13 @@ export default function OnboardingContainer({ onComplete }: OnboardingContainerP
         return <StepWelcome onNext={nextStep} />;
       case 1:
         return (
-          <StepLanguage
-            selectedLanguage={data.language}
-            onSelectLanguage={(code) => updateData("language", code)}
-            onNext={nextStep}
-          />
-        );
-      case 2:
-        return (
           <StepMotivation
-            selectedLanguageName={selectedLanguageName}
             selectedMotivation={data.motivation}
             onSelectMotivation={(id) => updateData("motivation", id)}
             onNext={nextStep}
           />
         );
-      case 3:
+      case 2:
         return (
           <StepGoal
             selectedGoal={data.dailyGoal}
@@ -88,10 +68,9 @@ export default function OnboardingContainer({ onComplete }: OnboardingContainerP
             onNext={nextStep}
           />
         );
-      case 4:
+      case 3:
         return (
           <StepPath
-            selectedLanguageName={selectedLanguageName}
             selectedPath={data.pathSelection}
             onSelectPath={(path) => updateData("pathSelection", path)}
             onNext={nextStep}
@@ -106,7 +85,7 @@ export default function OnboardingContainer({ onComplete }: OnboardingContainerP
     <SafeAreaView style={styles.container}>
       {currentStep > 0 && (
         <ProgressBar
-          progress={currentStep / 4}
+          progress={currentStep / 3}
           onBack={prevStep}
         />
       )}

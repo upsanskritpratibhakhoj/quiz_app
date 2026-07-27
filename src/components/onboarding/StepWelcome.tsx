@@ -1,5 +1,6 @@
 import React from "react";
-import { StyleSheet, Text, View, SafeAreaView } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, TYPOGRAPHY, SPACING } from "../../constants/theme";
 import Mascot from "../ui/Mascot";
 import Button from "../ui/Button";
@@ -27,12 +28,6 @@ export default function StepWelcome({ onNext }: StepWelcomeProps) {
             title="Get Started"
             variant="primary"
             onPress={onNext}
-            style={styles.button}
-          />
-          <Button
-            title="I already have an account"
-            variant="secondary"
-            onPress={onNext} // just go to next step or layout in this demo
             style={styles.button}
           />
         </View>

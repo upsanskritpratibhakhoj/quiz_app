@@ -5,7 +5,6 @@ import Card from "../ui/Card";
 import Button from "../ui/Button";
 
 interface StepPathProps {
-  selectedLanguageName: string;
   selectedPath: "beginner" | "placement" | "";
   onSelectPath: (path: "beginner" | "placement") => void;
   onNext: () => void;
@@ -46,7 +45,6 @@ function PathIcon({ type }: { type: "beginner" | "placement" }) {
 }
 
 export default function StepPath({
-  selectedLanguageName,
   selectedPath,
   onSelectPath,
   onNext,
@@ -65,9 +63,9 @@ export default function StepPath({
           <View style={styles.cardContent}>
             <PathIcon type="beginner" />
             <View style={styles.cardTextContainer}>
-              <Text style={styles.pathTitle}>Start from scratch</Text>
+              <Text style={styles.pathTitle}>6th-12th Class</Text>
               <Text style={styles.pathSubtitle}>
-                First time learning {selectedLanguageName}? Start with the absolute basics!
+                First time learning Sanskrit? Start with the absolute basics!
               </Text>
             </View>
           </View>
@@ -82,9 +80,9 @@ export default function StepPath({
           <View style={styles.cardContent}>
             <PathIcon type="placement" />
             <View style={styles.cardTextContainer}>
-              <Text style={styles.pathTitle}>Find my level</Text>
+              <Text style={styles.pathTitle}>College</Text>
               <Text style={styles.pathSubtitle}>
-                Already know some {selectedLanguageName}? Take a quick quiz to skip ahead.
+                Already know some Sanskrit?
               </Text>
             </View>
           </View>

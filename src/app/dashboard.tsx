@@ -1,5 +1,6 @@
 import React from "react";
-import { StyleSheet, Text, View, SafeAreaView } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import { COLORS, TYPOGRAPHY, RADII, SPACING } from "../constants/theme";
 import Mascot from "../components/ui/Mascot";
@@ -29,7 +30,6 @@ export default function Dashboard() {
   const dailyGoal = parseInt((params.dailyGoal as string) || "10", 10);
   const pathSelection = (params.pathSelection as string) || "beginner";
 
-  const languageName = LANGUAGE_NAMES[languageCode] || "Spanish";
   const motivationLabel = MOTIVATION_LABELS[motivationId] || "Brain Training";
 
   return (
@@ -56,7 +56,7 @@ export default function Dashboard() {
           <View style={styles.summaryCard}>
             <View style={styles.row}>
               <Text style={styles.label}>Language:</Text>
-              <Text style={styles.value}>{languageName}</Text>
+              <Text style={styles.value}>Sanskrit</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.row}>

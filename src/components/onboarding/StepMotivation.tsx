@@ -75,14 +75,12 @@ function MotivationIcon({ id }: { id: string }) {
 }
 
 interface StepMotivationProps {
-  selectedLanguageName: string;
   selectedMotivation: string;
   onSelectMotivation: (id: string) => void;
   onNext: () => void;
 }
 
 export default function StepMotivation({
-  selectedLanguageName,
   selectedMotivation,
   onSelectMotivation,
   onNext,
@@ -90,7 +88,7 @@ export default function StepMotivation({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
-        Why are you learning {selectedLanguageName}?
+        Why are you learning Sanskrit?
       </Text>
       
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
