@@ -6,6 +6,7 @@ interface GameContextType {
   coins: number;
   exp: number;
   isLoading: boolean;
+  completedLevels: Record<string, { completed: boolean; score: number }>;
   loseHeart: () => Promise<boolean>;
   addHearts: (amount: number) => Promise<void>;
   addCoins: (amount: number) => Promise<void>;
@@ -13,6 +14,7 @@ interface GameContextType {
   addExp: (amount: number) => Promise<void>;
   buyHeartWithCoins: () => Promise<{ success: boolean; message: string }>;
   refillHeartsWithCoins: () => Promise<{ success: boolean; message: string }>;
+  completeLevel: (levelId: string, score: number) => Promise<void>;
   resetStats: () => Promise<void>;
 }
 
@@ -21,6 +23,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 const HEARTS_KEY = "@quiz-app:hearts";
 const COINS_KEY = "@quiz-app:coins";
 const EXP_KEY = "@quiz-app:exp";
+const COMPLETED_LEVELS_KEY = "@quiz-app:completed_levels";
 
 const MAX_HEARTS = 5;
 const SINGLE_HEART_COST = 20;
@@ -30,6 +33,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hearts, setHeartsState] = useState<number>(MAX_HEARTS);
   const [coins, setCoinsState] = useState<number>(100); // Start with 100 for testing
   const [exp, setExpState] = useState<number>(0);
+  const [completedLevels, setCompletedLevelsState] = useState<Record<string, { completed: boolean; score: number }>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Load stats from AsyncStorage on mount
@@ -39,10 +43,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const storedHearts = await AsyncStorage.getItem(HEARTS_KEY);
         const storedCoins = await AsyncStorage.getItem(COINS_KEY);
         const storedExp = await AsyncStorage.getItem(EXP_KEY);
+        const storedCompleted = await AsyncStorage.getItem(COMPLETED_LEVELS_KEY);
 
         if (storedHearts !== null) setHeartsState(parseInt(storedHearts, 10));
         if (storedCoins !== null) setCoinsState(parseInt(storedCoins, 10));
         if (storedExp !== null) setExpState(parseInt(storedExp, 10));
+        if (storedCompleted !== null) setCompletedLevelsState(JSON.parse(storedCompleted));
       } catch (error) {
         console.error("Error loading game stats from AsyncStorage:", error);
       } finally {
@@ -140,14 +146,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: false, message: "खरीदने में त्रुटि हुई।" };
   };
 
+  const completeLevel = async (levelId: string, score: number) => {
+    const isCompleted = score >= 75;
+    const existing = completedLevels[levelId];
+    
+    // Only update if not already completed, or if new score is higher
+    if (!existing || !existing.completed || score > existing.score) {
+      const nextProgress = {
+        ...completedLevels,
+        [levelId]: { 
+          completed: isCompleted || (existing?.completed ?? false), 
+          score: Math.max(score, existing?.score ?? 0) 
+        },
+      };
+      setCompletedLevelsState(nextProgress);
+      try {
+        await AsyncStorage.setItem(COMPLETED_LEVELS_KEY, JSON.stringify(nextProgress));
+      } catch (e) {
+        console.error("Error saving completed levels:", e);
+      }
+    }
+  };
+
   const resetStats = async () => {
     setHeartsState(MAX_HEARTS);
     setCoinsState(100);
     setExpState(0);
+    setCompletedLevelsState({});
     await Promise.all([
       AsyncStorage.setItem(HEARTS_KEY, MAX_HEARTS.toString()),
       AsyncStorage.setItem(COINS_KEY, "100"),
       AsyncStorage.setItem(EXP_KEY, "0"),
+      AsyncStorage.setItem(COMPLETED_LEVELS_KEY, JSON.stringify({})),
     ]);
   };
 
@@ -158,6 +188,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         coins,
         exp,
         isLoading,
+        completedLevels,
         loseHeart,
         addHearts,
         addCoins,
@@ -165,6 +196,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addExp,
         buyHeartWithCoins,
         refillHeartsWithCoins,
+        completeLevel,
         resetStats,
       }}
     >

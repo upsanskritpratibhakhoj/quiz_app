@@ -8,14 +8,14 @@ import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import ProgressBar from "../components/ui/ProgressBar";
 import { useGame } from "../context/GameContext";
-import questionsRegistry from "../constants/questionsRegistry.json";
+import { buildLevelsForCategory } from "../utils/levelBuilder";
 
 interface QuestionData {
   Question: string;
   Option_A: string;
-  Option_B: string;
-  Option_C: string;
-  Option_D: string;
+  Option_B: string | null;
+  Option_C: string | null;
+  Option_D: string | null;
   Correct_Answer: string;
   Explanation?: string;
   Vocabulary_Breakdown?: string;
@@ -25,7 +25,8 @@ export default function QuizScreen() {
   const params = useLocalSearchParams();
   const category = (params.category as string) || "";
   const pathSelection = (params.pathSelection as string) || "beginner";
-  const questionType = (params.questionType as string) || "MCQ";
+  const levelId = (params.levelId as string) || "";
+  const levelIndexStr = (params.levelIndex as string) || "1";
 
   const {
     hearts,
@@ -35,30 +36,54 @@ export default function QuizScreen() {
     addExp,
     buyHeartWithCoins,
     refillHeartsWithCoins,
+    completeLevel,
   } = useGame();
 
-  // Load questions
-  const classGroup = pathSelection === "beginner" ? "बाल वर्ग (6-12)" : "युवा वर्ग (B.A.-M.A.)";
-  const rawQuestions = ((questionsRegistry as any)[classGroup]?.[category]?.[questionType] || []) as QuestionData[];
+  // Load questions for the specific level
+  const levels = buildLevelsForCategory(category, pathSelection);
+  const currentLevel = levels.find((l) => l.levelId === levelId);
+  const rawQuestions = (currentLevel?.questions || []) as QuestionData[];
 
   const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Interaction States based on quiz type
+  // 1. Single Select (MCQ, Fill_Blank, Sentence_Correction, True_False)
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+
+  // 2. Multi Select (Multi_Select, Vocabulary_Breakdown)
+  const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
+
+  // 3. Grid Word Select (Word_Connect, Sentence_Builder)
+  const [gridSelectedWords, setGridSelectedWords] = useState<Set<string>>(new Set());
+
+  // 4. Word Bank Reordering (Anvaya_Practice)
+  const [orderedWords, setOrderedWords] = useState<string[]>([]);
+
+  // 5. Match Following
+  const [matchLeftWords, setMatchLeftWords] = useState<string[]>([]);
+  const [matchRightWords, setMatchRightWords] = useState<string[]>([]);
+  const [matchMap, setMatchMap] = useState<Record<string, string>>({}); // left -> right
+  const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
+  const [selectedRight, setSelectedRight] = useState<string | null>(null);
+  const [matchedLeftSet, setMatchedLeftSet] = useState<Set<string>>(new Set());
+
+  // Checking & Validation States
   const [isChecked, setIsChecked] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
 
-  // Shop state when out of hearts
+  // Game over modal state
   const [outOfHeartsModalVisible, setOutOfHeartsModalVisible] = useState(false);
   const [shopLoading, setShopLoading] = useState(false);
 
-  // Shuffle or slice questions on mount
+  // Mount/load level questions
   useEffect(() => {
     if (rawQuestions.length > 0) {
-      // Keep up to 10 questions for a standard Duolingo lesson
-      setQuestions(rawQuestions.slice(0, 10));
+      setQuestions(rawQuestions);
     }
-  }, [category, pathSelection]);
+  }, [levelId]);
 
   // Watch for out of hearts
   useEffect(() => {
@@ -67,48 +92,200 @@ export default function QuizScreen() {
     }
   }, [hearts]);
 
+  const currentQuestion = questions[currentIndex];
+  const totalQuestions = questions.length;
+  const quizType = currentLevel?.type || "MCQ";
+
+  // Initialize helper states when question index changes
+  useEffect(() => {
+    if (!currentQuestion) return;
+
+    // Reset interaction states
+    setSelectedOption(null);
+    setMultiSelected(new Set());
+    setGridSelectedWords(new Set());
+    setOrderedWords([]);
+    setSelectedLeft(null);
+    setSelectedRight(null);
+    setMatchedLeftSet(new Set());
+
+    // Setup specific states
+    if (quizType === "Match_Following") {
+      const left = currentQuestion.Option_A.split(",").map((w) => w.trim());
+      setMatchLeftWords(left);
+
+      // Parse matches: "Option_A:सुहृत्; Option_B:इन्दुः; ..."
+      const mapping: Record<string, string> = {};
+      const rightWordsList: string[] = [];
+
+      currentQuestion.Correct_Answer.split(";").forEach((pair) => {
+        const parts = pair.split(":");
+        if (parts.length === 2) {
+          const optKey = parts[0].trim();
+          const rWord = parts[1].trim();
+
+          let lWord = "";
+          if (optKey === "Option_A") lWord = left[0];
+          else if (optKey === "Option_B") lWord = left[1];
+          else if (optKey === "Option_C") lWord = left[2];
+          else if (optKey === "Option_D") lWord = left[3];
+
+          if (lWord) {
+            mapping[lWord] = rWord;
+            rightWordsList.push(rWord);
+          }
+        }
+      });
+
+      setMatchMap(mapping);
+      // Shuffle right words
+      setMatchRightWords([...rightWordsList].sort(() => Math.random() - 0.5));
+    }
+  }, [currentIndex, currentQuestion, quizType]);
+
+  // Verify pair match instantly for Match_Following
+  useEffect(() => {
+    if (quizType !== "Match_Following" || !selectedLeft || !selectedRight) return;
+
+    const correctMatch = matchMap[selectedLeft] === selectedRight;
+    if (correctMatch) {
+      // Add to matched set
+      setMatchedLeftSet((prev) => {
+        const next = new Set(prev);
+        next.add(selectedLeft);
+        return next;
+      });
+      setSelectedLeft(null);
+      setSelectedRight(null);
+    } else {
+      // Wrong pairing deducts heart instantly and resets selections
+      Alert.alert("गलत मिलान! ⚠️", `"${selectedLeft}" का मिलान "${selectedRight}" से नहीं है।`);
+      loseHeart();
+      setSelectedLeft(null);
+      setSelectedRight(null);
+    }
+  }, [selectedLeft, selectedRight, matchMap, quizType]);
+
   if (questions.length === 0) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>इस श्रेणी में अभ्यास लोड नहीं हो सका।</Text>
+          <Text style={styles.emptyText}>इस स्तर का अभ्यास लोड नहीं हो सका।</Text>
           <Button title="वापस जाएं" onPress={() => router.back()} style={{ width: 150 }} />
         </View>
       </SafeAreaView>
     );
   }
 
-  const currentQuestion = questions[currentIndex];
-  const totalQuestions = questions.length;
-
+  // Handle single option tap
   const handleSelectOption = (option: string) => {
     if (isChecked) return;
     setSelectedOption(option);
   };
 
-  const handleCheck = async () => {
-    if (!selectedOption || isChecked) return;
+  // Handle multi select toggle
+  const handleToggleMultiSelect = (key: string) => {
+    if (isChecked) return;
+    setMultiSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
-    const correct = selectedOption === currentQuestion.Correct_Answer;
+  // Handle grid word toggle
+  const handleToggleGridWord = (word: string) => {
+    if (isChecked) return;
+    setGridSelectedWords((prev) => {
+      const next = new Set(prev);
+      if (next.has(word)) next.delete(word);
+      else next.add(word);
+      return next;
+    });
+  };
+
+  // Handle word bank click
+  const handleWordBankPress = (word: string, isFromTop: boolean) => {
+    if (isChecked) return;
+    if (isFromTop) {
+      setOrderedWords((prev) => prev.filter((w) => w !== word));
+    } else {
+      if (!orderedWords.includes(word)) {
+        setOrderedWords((prev) => [...prev, word]);
+      }
+    }
+  };
+
+  const checkDisabled = () => {
+    if (isChecked) return false;
+    switch (quizType) {
+      case "MCQ":
+      case "Fill_Blank":
+      case "Sentence_Correction":
+      case "True_False":
+        return !selectedOption;
+      case "Multi_Select":
+      case "Vocabulary_Breakdown":
+        return multiSelected.size === 0;
+      case "Word_Connect":
+      case "Sentence_Builder":
+        return gridSelectedWords.size === 0;
+      case "Anvaya_Practice":
+        return orderedWords.length === 0;
+      case "Match_Following":
+        return matchedLeftSet.size < matchLeftWords.length;
+      default:
+        return true;
+    }
+  };
+
+  const handleCheck = async () => {
+    if (isChecked) return;
+
+    let correct = false;
+
+    if (quizType === "MCQ" || quizType === "Fill_Blank" || quizType === "Sentence_Correction" || quizType === "True_False") {
+      correct = selectedOption === currentQuestion.Correct_Answer;
+    } else if (quizType === "Multi_Select" || quizType === "Vocabulary_Breakdown") {
+      // Split correct answers (e.g. Option_A, Option_B)
+      const correctKeys = currentQuestion.Correct_Answer.split(",").map((k) => k.trim());
+      const selectedKeys = Array.from(multiSelected);
+      correct =
+        correctKeys.length === selectedKeys.length &&
+        correctKeys.every((k) => selectedKeys.includes(k));
+    } else if (quizType === "Word_Connect" || quizType === "Sentence_Builder") {
+      // Correct answer e.g. "पङ्कजम्; पद्मम्; सरोजम्"
+      const correctWords = currentQuestion.Correct_Answer.split(";").map((w) => w.trim());
+      const selectedWords = Array.from(gridSelectedWords);
+      correct =
+        correctWords.length === selectedWords.length &&
+        correctWords.every((w) => selectedWords.includes(w));
+    } else if (quizType === "Anvaya_Practice") {
+      const correctWords = currentQuestion.Correct_Answer.split(";").map((w) => w.trim());
+      correct =
+        correctWords.length === orderedWords.length &&
+        correctWords.every((w, idx) => orderedWords[idx] === w);
+    } else if (quizType === "Match_Following") {
+      correct = matchedLeftSet.size === matchLeftWords.length;
+    }
+
     setIsCorrect(correct);
     setIsChecked(true);
 
-    if (!correct) {
-      // Deduct a heart
+    if (correct) {
+      setCorrectCount((prev) => prev + 1);
+    } else {
       await loseHeart();
     }
   };
 
   const handleContinue = () => {
-    // Reset checking states
-    setSelectedOption(null);
     setIsChecked(false);
 
-    // Proceed to next question or finish
     if (currentIndex + 1 < totalQuestions) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      // Finished all questions!
       setQuizFinished(true);
     }
   };
@@ -147,24 +324,51 @@ export default function QuizScreen() {
   };
 
   const handleFinishQuiz = async () => {
-    // Reward stats
+    const finalScore = Math.round((correctCount / totalQuestions) * 100);
+    
+    // Save level completion score
+    await completeLevel(levelId, finalScore);
+
+    // Reward XP & Coins
     await addCoins(5);
     await addExp(10);
-    // Go back to categories
-    router.replace("/categories");
+
+    router.replace({
+      pathname: "/exerciseSelection",
+      params: { category, pathSelection },
+    });
   };
 
-  // Render Success Screen
+  // Render Lesson Complete Screen
   if (quizFinished) {
+    const finalScore = Math.round((correctCount / totalQuestions) * 100);
+    const isLevelPassed = finalScore >= 75;
+
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.successContainer}>
-          <Mascot expression="excited" size={160} style={styles.successMascot} />
-          
-          <Text style={styles.successTitle}>पाठ पूर्ण! 🎉</Text>
-          <Text style={styles.successSubtitle}>अति उत्तम! आपने अभ्यास को सफलतापूर्वक पूरा किया।</Text>
+          <Mascot
+            expression={isLevelPassed ? "excited" : "guiding"}
+            size={160}
+            style={styles.successMascot}
+          />
+
+          <Text style={styles.successTitle}>
+            {isLevelPassed ? "स्तर पूर्ण! 🎉" : "स्तर समाप्त! 📝"}
+          </Text>
+          <Text style={styles.successSubtitle}>
+            {isLevelPassed
+              ? `शानदार! आपने ${finalScore}% अंकों के साथ सफलतापूर्वक यह स्तर पूरा किया और अगला स्तर अनलॉक कर दिया!`
+              : `आपने ${finalScore}% अंक प्राप्त किए। अगला स्तर अनलॉक करने के लिए कम से कम 75% अंक की आवश्यकता है। कृपया फिर से प्रयास करें!`}
+          </Text>
 
           <View style={styles.rewardsRow}>
+            <View style={styles.rewardCard}>
+              <Text style={styles.rewardIcon}>🎯</Text>
+              <Text style={styles.rewardValue}>{finalScore}%</Text>
+              <Text style={styles.rewardLabel}>प्राप्त अंक</Text>
+            </View>
+
             <View style={styles.rewardCard}>
               <Text style={styles.rewardIcon}>⚡</Text>
               <Text style={styles.rewardValue}>+10 EXP</Text>
@@ -179,22 +383,30 @@ export default function QuizScreen() {
           </View>
 
           <View style={styles.successFooter}>
-            <Button title="जारी रखें (Continue)" onPress={handleFinishQuiz} variant="primary" />
+            <Button
+              title={isLevelPassed ? "आगे बढ़ें (Continue)" : "पुनः प्रयास करें (Retry)"}
+              onPress={handleFinishQuiz}
+              variant="primary"
+            />
           </View>
         </View>
       </SafeAreaView>
     );
   }
 
-  // Options keys helper
-  const options = [
-    { key: "Option_A", label: "A", text: currentQuestion.Option_A },
-    { key: "Option_B", label: "B", text: currentQuestion.Option_B },
-    { key: "Option_C", label: "C", text: currentQuestion.Option_C },
-    { key: "Option_D", label: "D", text: currentQuestion.Option_D },
-  ];
+  // Helper arrays for options
+  const filterOptions = () => {
+    return [
+      { key: "Option_A", label: "A", text: currentQuestion.Option_A },
+      { key: "Option_B", label: "B", text: currentQuestion.Option_B },
+      { key: "Option_C", label: "C", text: currentQuestion.Option_C },
+      { key: "Option_D", label: "D", text: currentQuestion.Option_D },
+    ].filter((opt) => opt.text !== null && opt.text !== undefined && opt.text !== "");
+  };
 
-  // Mascot expression based on state
+  const options = filterOptions();
+
+  // Mascot expression based on correctness
   let mascotExpression: "happy" | "excited" | "guiding" = "happy";
   if (isChecked) {
     mascotExpression = isCorrect ? "excited" : "guiding";
@@ -208,7 +420,7 @@ export default function QuizScreen() {
           <Text style={styles.closeText}>✕</Text>
         </Pressable>
         <View style={styles.progressContainer}>
-          <ProgressBar progress={(currentIndex) / totalQuestions} />
+          <ProgressBar progress={currentIndex / totalQuestions} />
         </View>
         <View style={styles.heartsContainer}>
           <Text style={styles.heartIcon}>❤️</Text>
@@ -219,60 +431,265 @@ export default function QuizScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Mascot Speech Bubble */}
         <View style={styles.mascotSection}>
-          <Mascot expression={mascotExpression} size={100} style={styles.mascot} />
+          <Mascot expression={mascotExpression} size={90} style={styles.mascot} />
           <View style={styles.bubble}>
             <View style={styles.bubbleArrow} />
-            <Text style={styles.questionText}>{currentQuestion.Question}</Text>
+            <Text style={styles.questionText}>
+              {quizType === "Match_Following"
+                ? "शब्दों के सही जोड़ों का मिलान करें! (Match the correct pairs of words)"
+                : quizType === "Anvaya_Practice"
+                ? "शब्दों को सही गद्य क्रम में व्यवस्थित करें! (Arrange words in correct order)"
+                : currentQuestion.Question}
+            </Text>
           </View>
         </View>
 
-        {/* Options List */}
-        <View style={styles.optionsContainer}>
-          {options.map((opt) => {
-            const isOptSelected = selectedOption === opt.key;
-            let cardVariant: "accent" | "primary" = "accent";
-            
-            // If checked, highlight correct/incorrect
-            let optionStyle = {};
-            if (isChecked) {
-              if (opt.key === currentQuestion.Correct_Answer) {
-                // Correct answer style (Greenish borders)
+        {/* 1. Single Select Render */}
+        {(quizType === "MCQ" ||
+          quizType === "Fill_Blank" ||
+          quizType === "Sentence_Correction" ||
+          quizType === "True_False") && (
+          <View style={styles.optionsContainer}>
+            {options.map((opt) => {
+              const isOptSelected = selectedOption === opt.key;
+              let cardVariant: "accent" | "primary" = "accent";
+
+              if (isChecked && opt.key === currentQuestion.Correct_Answer) {
                 cardVariant = "primary";
               }
-            }
 
-            return (
-              <Card
-                key={opt.key}
-                selected={isOptSelected}
-                variant={cardVariant}
-                onPress={() => handleSelectOption(opt.key)}
-                style={styles.optionCard}
-              >
-                <View style={styles.optionCardContent}>
-                  <View
+              return (
+                <Card
+                  key={opt.key}
+                  selected={isOptSelected}
+                  variant={cardVariant}
+                  onPress={() => handleSelectOption(opt.key)}
+                  style={styles.optionCard}
+                >
+                  <View style={styles.optionCardContent}>
+                    <View
+                      style={[
+                        styles.optionBadge,
+                        isOptSelected && styles.optionBadgeSelected,
+                        isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeCorrect,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.optionBadgeText,
+                          isOptSelected && styles.optionBadgeTextSelected,
+                          isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeTextCorrect,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </View>
+                    <Text style={styles.optionText}>{opt.text}</Text>
+                  </View>
+                </Card>
+              );
+            })}
+          </View>
+        )}
+
+        {/* 2. Multi Select Render */}
+        {(quizType === "Multi_Select" || quizType === "Vocabulary_Breakdown") && (
+          <View style={styles.optionsContainer}>
+            {options.map((opt) => {
+              const isOptSelected = multiSelected.has(opt.key);
+              const correctKeys = currentQuestion.Correct_Answer.split(",").map((k) => k.trim());
+              const isCorrectKey = correctKeys.includes(opt.key);
+
+              let cardVariant: "accent" | "primary" = "accent";
+              if (isChecked && isCorrectKey) {
+                cardVariant = "primary";
+              }
+
+              return (
+                <Card
+                  key={opt.key}
+                  selected={isOptSelected}
+                  variant={cardVariant}
+                  onPress={() => handleToggleMultiSelect(opt.key)}
+                  style={styles.optionCard}
+                >
+                  <View style={styles.optionCardContent}>
+                    <View
+                      style={[
+                        styles.optionBadge,
+                        isOptSelected && styles.optionBadgeSelected,
+                        isChecked && isCorrectKey && styles.optionBadgeCorrect,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.optionBadgeText,
+                          isOptSelected && styles.optionBadgeTextSelected,
+                          isChecked && isCorrectKey && styles.optionBadgeTextCorrect,
+                        ]}
+                      >
+                        {isOptSelected ? "✓" : opt.label}
+                      </Text>
+                    </View>
+                    <Text style={styles.optionText}>{opt.text}</Text>
+                  </View>
+                </Card>
+              );
+            })}
+          </View>
+        )}
+
+        {/* 3. Grid Word Select Render */}
+        {(quizType === "Word_Connect" || quizType === "Sentence_Builder") && (
+          <View style={styles.wordGridContainer}>
+            <Text style={styles.instructionSmall}>निर्देश: सही शब्दों पर टैप करें</Text>
+            <View style={styles.wordGrid}>
+              {currentQuestion.Option_A.split(",").map((word) => {
+                const wClean = word.trim();
+                const isWordSelected = gridSelectedWords.has(wClean);
+                const correctWords = currentQuestion.Correct_Answer.split(";").map((w) => w.trim());
+                const isCorrectWord = correctWords.includes(wClean);
+
+                let badgeStyle = styles.wordBadge;
+                if (isWordSelected) badgeStyle = { ...badgeStyle, ...styles.wordBadgeSelected };
+                if (isChecked && isCorrectWord) badgeStyle = { ...badgeStyle, ...styles.wordBadgeCorrect };
+
+                return (
+                  <Pressable
+                    key={wClean}
+                    onPress={() => handleToggleGridWord(wClean)}
+                    style={badgeStyle}
+                  >
+                    <Text
+                      style={[
+                        styles.wordBadgeText,
+                        isWordSelected && styles.wordBadgeTextSelected,
+                        isChecked && isCorrectWord && styles.wordBadgeTextCorrect,
+                      ]}
+                    >
+                      {wClean}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* 4. Word Bank Reordering Render */}
+        {quizType === "Anvaya_Practice" && (
+          <View style={styles.wordBankContainer}>
+            {/* Top target ordered slot */}
+            <View style={styles.wordOrderTarget}>
+              {orderedWords.length === 0 ? (
+                <Text style={styles.wordOrderPlaceholder}>शब्दों पर टैप करके वाक्य बनाएं</Text>
+              ) : (
+                orderedWords.map((word) => (
+                  <Pressable
+                    key={word}
+                    onPress={() => handleWordBankPress(word, true)}
+                    style={styles.wordBadgeSelected}
+                  >
+                    <Text style={styles.wordBadgeTextSelected}>{word}</Text>
+                  </Pressable>
+                ))
+              )}
+            </View>
+
+            {/* Bottom word bank sources */}
+            <View style={styles.wordBankGrid}>
+              {currentQuestion.Option_A.split(",").map((word) => {
+                const wClean = word.trim();
+                const isUsed = orderedWords.includes(wClean);
+
+                return (
+                  <Pressable
+                    key={wClean}
+                    onPress={() => !isUsed && handleWordBankPress(wClean, false)}
+                    style={[styles.wordBadge, isUsed && styles.wordBadgeDisabled]}
+                    disabled={isUsed}
+                  >
+                    <Text style={[styles.wordBadgeText, isUsed && styles.wordBadgeTextDisabled]}>
+                      {wClean}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* 5. Match Following Columns Render */}
+        {quizType === "Match_Following" && (
+          <View style={styles.matchContainer}>
+            {/* Left words column */}
+            <View style={styles.matchColumn}>
+              <Text style={styles.columnHeader}>संस्कृत पद</Text>
+              {matchLeftWords.map((word) => {
+                const isMatched = matchedLeftSet.has(word);
+                const isSelected = selectedLeft === word;
+
+                return (
+                  <Pressable
+                    key={word}
+                    disabled={isMatched || isChecked}
+                    onPress={() => setSelectedLeft(word)}
                     style={[
-                      styles.optionBadge,
-                      isOptSelected && styles.optionBadgeSelected,
-                      isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeCorrect,
+                      styles.matchCard,
+                      isSelected && styles.matchCardSelected,
+                      isMatched && styles.matchCardMatched,
                     ]}
                   >
                     <Text
                       style={[
-                        styles.optionBadgeText,
-                        isOptSelected && styles.optionBadgeTextSelected,
-                        isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeTextCorrect,
+                        styles.matchCardText,
+                        isSelected && styles.matchCardTextSelected,
+                        isMatched && styles.matchCardTextMatched,
                       ]}
                     >
-                      {opt.label}
+                      {word} {isMatched && "✅"}
                     </Text>
-                  </View>
-                  <Text style={styles.optionText}>{opt.text}</Text>
-                </View>
-              </Card>
-            );
-          })}
-        </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Right words column */}
+            <View style={styles.matchColumn}>
+              <Text style={styles.columnHeader}>सही अर्थ / पर्याय</Text>
+              {matchRightWords.map((word) => {
+                // Find if this right word is matched to any left word
+                const isMatched = matchLeftWords.some(
+                  (lWord) => matchedLeftSet.has(lWord) && matchMap[lWord] === word
+                );
+                const isSelected = selectedRight === word;
+
+                return (
+                  <Pressable
+                    key={word}
+                    disabled={isMatched || isChecked}
+                    onPress={() => setSelectedRight(word)}
+                    style={[
+                      styles.matchCard,
+                      isSelected && styles.matchCardSelected,
+                      isMatched && styles.matchCardMatched,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.matchCardText,
+                        isSelected && styles.matchCardTextSelected,
+                        isMatched && styles.matchCardTextMatched,
+                      ]}
+                    >
+                      {word} {isMatched && "✅"}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Footer / Check Panel */}
@@ -287,23 +704,26 @@ export default function QuizScreen() {
             <Text style={[styles.feedbackTitle, isCorrect ? styles.textCorrect : styles.textIncorrect]}>
               {isCorrect ? "अति उत्तम! 🎉 (Correct!)" : "अशुद्धम् ⚠️ (Incorrect)"}
             </Text>
-            
-            {/* Show explanation & vocabulary */}
+
             <ScrollView style={styles.explanationScroll} nestedScrollEnabled>
-              {!isCorrect && (
+              {!isCorrect && quizType !== "Match_Following" && (
                 <Text style={styles.correctAnswerLabel}>
-                  सही उत्तर: {currentQuestion[currentQuestion.Correct_Answer as keyof QuestionData]}
+                  सही उत्तर:{" "}
+                  {quizType === "Multi_Select" || quizType === "Vocabulary_Breakdown"
+                    ? currentQuestion.Correct_Answer.split(",")
+                        .map((key) => {
+                          const opt = options.find((o) => o.key === key.trim());
+                          return opt ? opt.text : key;
+                        })
+                        .join(", ")
+                    : currentQuestion.Correct_Answer.replace(/;/g, ", ")}
                 </Text>
               )}
               {currentQuestion.Explanation && (
-                <Text style={styles.explanationText}>
-                  💡 {currentQuestion.Explanation}
-                </Text>
+                <Text style={styles.explanationText}>💡 {currentQuestion.Explanation}</Text>
               )}
               {currentQuestion.Vocabulary_Breakdown && (
-                <Text style={styles.vocabText}>
-                  📚 {currentQuestion.Vocabulary_Breakdown}
-                </Text>
+                <Text style={styles.vocabText}>📚 {currentQuestion.Vocabulary_Breakdown}</Text>
               )}
             </ScrollView>
           </View>
@@ -312,21 +732,17 @@ export default function QuizScreen() {
         <Button
           title={isChecked ? "आगे बढ़ें (Continue)" : "जांचें (Check)"}
           variant={isChecked ? (isCorrect ? "primary" : "danger") : "accent"}
-          disabled={!selectedOption}
+          disabled={checkDisabled()}
           onPress={isChecked ? handleContinue : handleCheck}
         />
       </View>
 
       {/* Game Over / Out of Hearts Modal */}
-      <Modal
-        visible={outOfHeartsModalVisible}
-        transparent
-        animationType="slide"
-      >
+      <Modal visible={outOfHeartsModalVisible} transparent animationType="slide">
         <View style={styles.shopOverlay}>
           <View style={styles.shopContainer}>
             <Mascot expression="guiding" size={110} style={styles.shopMascot} />
-            
+
             <Text style={styles.shopTitle}>दिल समाप्त! (Out of Hearts)</Text>
             <Text style={styles.shopSubtitle}>
               अरे नहीं! आपके पास कोई दिल (Hearts) नहीं बचा है। पाठ जारी रखने के लिए रीफिल करें!
@@ -338,7 +754,6 @@ export default function QuizScreen() {
             </View>
 
             <View style={styles.shopOptions}>
-              {/* Option 1: Buy 1 heart */}
               <View style={styles.shopCard}>
                 <View style={styles.shopCardLeft}>
                   <Text style={styles.shopCardTitle}>+1 दिल (Heart)</Text>
@@ -353,7 +768,6 @@ export default function QuizScreen() {
                 />
               </View>
 
-              {/* Option 2: Full refill */}
               <View style={styles.shopCard}>
                 <View style={styles.shopCardLeft}>
                   <Text style={styles.shopCardTitle}>पूरा रीफिल (5 Hearts)</Text>
@@ -442,7 +856,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 150, // Keep space for bottom feedback bar
+    paddingBottom: 160,
   },
   mascotSection: {
     flexDirection: "row",
@@ -476,9 +890,9 @@ const styles = StyleSheet.create({
   },
   questionText: {
     ...TYPOGRAPHY.body,
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.text,
-    lineHeight: 22,
+    lineHeight: 20,
   },
   optionsContainer: {
     gap: 12,
@@ -527,6 +941,141 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     flex: 1,
   },
+  wordGridContainer: {
+    marginTop: 10,
+  },
+  instructionSmall: {
+    ...TYPOGRAPHY.bodyRegular,
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginBottom: 10,
+  },
+  wordGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  wordBadge: {
+    backgroundColor: COLORS.white,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderBottomWidth: 4,
+    borderBottomColor: COLORS.borderDark,
+    borderRadius: RADII.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  wordBadgeSelected: {
+    backgroundColor: COLORS.background,
+    borderColor: COLORS.accent,
+    borderBottomColor: COLORS.accentDark,
+  },
+  wordBadgeCorrect: {
+    backgroundColor: "#d7f5b2",
+    borderColor: COLORS.primary,
+    borderBottomColor: COLORS.primaryDark,
+  },
+  wordBadgeDisabled: {
+    backgroundColor: COLORS.whiteDark,
+    borderColor: COLORS.whiteDark,
+    borderBottomWidth: 2,
+    opacity: 0.5,
+  },
+  wordBadgeText: {
+    ...TYPOGRAPHY.body,
+    fontSize: 15,
+    color: COLORS.text,
+  },
+  wordBadgeTextSelected: {
+    ...TYPOGRAPHY.body,
+    fontSize: 15,
+    color: COLORS.accentDark,
+  },
+  wordBadgeTextCorrect: {
+    ...TYPOGRAPHY.body,
+    fontSize: 15,
+    color: COLORS.primaryDark,
+  },
+  wordBadgeTextDisabled: {
+    color: COLORS.textMuted,
+  },
+  wordBankContainer: {
+    marginTop: 10,
+    gap: 20,
+  },
+  wordOrderTarget: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    minHeight: 60,
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.backgroundDark,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  wordOrderPlaceholder: {
+    ...TYPOGRAPHY.bodyRegular,
+    fontSize: 14,
+    color: COLORS.textMuted,
+    fontStyle: "italic",
+  },
+  wordBankGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  matchContainer: {
+    flexDirection: "row",
+    gap: 15,
+    marginTop: 10,
+  },
+  matchColumn: {
+    flex: 1,
+    gap: 10,
+  },
+  columnHeader: {
+    ...TYPOGRAPHY.body,
+    fontSize: 13,
+    color: COLORS.textMuted,
+    textAlign: "center",
+    marginBottom: 5,
+  },
+  matchCard: {
+    backgroundColor: COLORS.white,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderBottomWidth: 4,
+    borderBottomColor: COLORS.borderDark,
+    borderRadius: RADII.md,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 50,
+  },
+  matchCardSelected: {
+    borderColor: COLORS.accent,
+    borderBottomColor: COLORS.accentDark,
+    backgroundColor: COLORS.background,
+  },
+  matchCardMatched: {
+    borderColor: COLORS.primary,
+    borderBottomColor: COLORS.primaryDark,
+    backgroundColor: "#e8ffd1",
+    opacity: 0.8,
+  },
+  matchCardText: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+    color: COLORS.text,
+    textAlign: "center",
+  },
+  matchCardTextSelected: {
+    color: COLORS.accentDark,
+  },
+  matchCardTextMatched: {
+    color: COLORS.primaryDark,
+  },
   footer: {
     position: "absolute",
     bottom: 0,
@@ -541,11 +1090,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   footerCorrect: {
-    backgroundColor: "#d7f5b2", // Soft green
+    backgroundColor: "#d7f5b2",
     borderTopColor: "#b2e67a",
   },
   footerIncorrect: {
-    backgroundColor: "#ffdbdb", // Soft red
+    backgroundColor: "#ffdbdb",
     borderTopColor: "#ffadad",
   },
   feedbackContainer: {
@@ -612,7 +1161,7 @@ const styles = StyleSheet.create({
   },
   rewardsRow: {
     flexDirection: "row",
-    gap: 20,
+    gap: 12,
     width: "100%",
     marginBottom: 40,
   },
@@ -620,7 +1169,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.white,
     borderRadius: RADII.lg,
-    padding: 16,
+    padding: 12,
     alignItems: "center",
     borderWidth: 2.5,
     borderColor: COLORS.backgroundDark,
@@ -628,18 +1177,18 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.borderDark,
   },
   rewardIcon: {
-    fontSize: 28,
-    marginBottom: 6,
+    fontSize: 24,
+    marginBottom: 4,
   },
   rewardValue: {
     ...TYPOGRAPHY.body,
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.text,
     marginBottom: 2,
   },
   rewardLabel: {
     ...TYPOGRAPHY.bodyRegular,
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.textMuted,
   },
   successFooter: {
