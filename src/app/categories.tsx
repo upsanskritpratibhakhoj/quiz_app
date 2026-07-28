@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, View, ScrollView, Alert } from "react-native";
+import { StyleSheet, Text, View, ScrollView, Alert, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import { COLORS, TYPOGRAPHY, SPACING, RADII } from "../constants/theme";
@@ -17,6 +17,8 @@ export default function CategoriesScreen() {
 
   const categories = isBeginner ? BAL_VARG_CATEGORIES : YUVA_VARG_CATEGORIES;
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const { width } = useWindowDimensions();
+  const cardSize = (width - 40 - 12) / 2;
 
   const handleStartLesson = () => {
     if (!selectedCategory) return;
@@ -62,7 +64,7 @@ export default function CategoriesScreen() {
                 key={category}
                 selected={isSelected}
                 onPress={() => setSelectedCategory(category)}
-                style={styles.card}
+                style={StyleSheet.flatten([styles.card, { width: cardSize, height: cardSize }])}
               >
                 <View style={styles.cardContent}>
                   <View style={styles.iconContainer}>
@@ -153,29 +155,33 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   list: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     paddingBottom: 20,
     gap: 12,
   },
   card: {
-    height: 68,
-    width: "100%",
+    // Dynamically sized
   },
   cardContent: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
+    justifyContent: "center",
     height: "100%",
-    paddingHorizontal: 12,
+    paddingHorizontal: 4,
   },
   cardText: {
     ...TYPOGRAPHY.body,
     color: COLORS.text,
-    fontSize: 16,
-    marginLeft: 12,
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 8,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: COLORS.background,
     borderWidth: 1.5,
     borderColor: COLORS.backgroundDark,
@@ -184,7 +190,7 @@ const styles = StyleSheet.create({
   },
   iconText: {
     ...TYPOGRAPHY.body,
-    fontSize: 16,
+    fontSize: 18,
     color: COLORS.accent,
   },
   footer: {
