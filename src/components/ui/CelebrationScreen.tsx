@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,21 +7,25 @@ import {
   Easing,
   Dimensions,
   SafeAreaView,
+  Pressable,
+  GestureResponderEvent,
 } from "react-native";
-import { COLORS, TYPOGRAPHY, SPACING, RADII } from "../../constants/theme";
+import { COLORS, SPACING, RADII } from "../../constants/theme";
 import Mascot from "./Mascot";
 import Button from "./Button";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface CelebrationScreenProps {
-  score: number;
+  score?: number;
   expGained?: number;
   coinsGained?: number;
   onContinue: () => void;
 }
 
-// Generate deterministic confetti items with varied shapes, positions & colors
+// ----------------------------------------------------
+// 1. Confetti & Sparkle Items Configuration
+// ----------------------------------------------------
 const CONFETTI_COLORS = [
   "#ffc800", // Gold / Yellow
   "#a5ed6e", // Lime Green
@@ -29,19 +33,21 @@ const CONFETTI_COLORS = [
   "#ff4b4b", // Vibrant Red
   "#a855f7", // Bright Purple
   "#ff7675", // Coral
-  "#55efc4", // Mint
+  "#00cec9", // Teal
 ];
 
-const NUM_CONFETTI = 30;
+const NUM_CONFETTI = 36;
 
 const CONFETTI_ITEMS = Array.from({ length: NUM_CONFETTI }).map((_, i) => {
   const startX = Math.random() * SCREEN_WIDTH;
-  const endX = startX + (Math.random() * 80 - 40);
+  const endX = startX + (Math.random() * 120 - 60);
   const size = Math.random() * 10 + 8;
   const isCircle = i % 3 === 0;
   const isRibbon = i % 4 === 0;
-  const duration = Math.random() * 2500 + 2500; // 2.5s to 5s
-  const delay = Math.random() * 1200;
+  const isStar = i % 5 === 0;
+  const isBackground = i % 2 === 0;
+  const duration = Math.random() * 2500 + (isBackground ? 3500 : 2500);
+  const delay = Math.random() * 1000;
   const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
   const rotateDirection = i % 2 === 0 ? 1 : -1;
 
@@ -52,6 +58,8 @@ const CONFETTI_ITEMS = Array.from({ length: NUM_CONFETTI }).map((_, i) => {
     size,
     isCircle,
     isRibbon,
+    isStar,
+    isBackground,
     duration,
     delay,
     color,
@@ -59,136 +67,211 @@ const CONFETTI_ITEMS = Array.from({ length: NUM_CONFETTI }).map((_, i) => {
   };
 });
 
+interface TapSparkle {
+  id: number;
+  x: number;
+  y: number;
+  color: string;
+  size: number;
+}
+
 export default function CelebrationScreen({
   score = 100,
   expGained = 20,
   coinsGained = 10,
   onContinue,
 }: CelebrationScreenProps) {
-  // Animation values
-  const trophyScale = useRef(new Animated.Value(0)).current;
-  const trophyGlow = useRef(new Animated.Value(0)).current;
-  const mascotTranslateY = useRef(new Animated.Value(40)).current;
-  const mascotScale = useRef(new Animated.Value(0.8)).current;
-  const bannerScale = useRef(new Animated.Value(0)).current;
-  const cardsTranslateY = useRef(new Animated.Value(60)).current;
-  const cardsOpacity = useRef(new Animated.Value(0)).current;
-  const buttonScale = useRef(new Animated.Value(0.9)).current;
+  // ----------------------------------------------------
+  // 2. Animated Values for Multi-Phase Entrance
+  // ----------------------------------------------------
+  const sunburstRotation = useRef(new Animated.Value(0)).current;
+  const shockwaveScale = useRef(new Animated.Value(0)).current;
+  const shockwaveOpacity = useRef(new Animated.Value(1)).current;
+
+  // Phase 1: Medallion
+  const medallionScale = useRef(new Animated.Value(0)).current;
+  const medallionRotate = useRef(new Animated.Value(-15)).current;
+
+  // Phase 2: Mascot & Speech Bubble
+  const mascotScale = useRef(new Animated.Value(0)).current;
+  const mascotTranslateY = useRef(new Animated.Value(30)).current;
+  const speechBubbleScale = useRef(new Animated.Value(0)).current;
+
+  // Phase 3: Roll-up Stat Counters
+  const [displayScore, setDisplayScore] = useState(0);
+  const [displayExp, setDisplayExp] = useState(0);
+  const [displayCoins, setDisplayCoins] = useState(0);
+  const cardScale = useRef(new Animated.Value(0.8)).current;
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+
+  // Phase 4: CTA Button
+  const buttonScale = useRef(new Animated.Value(0.85)).current;
   const buttonOpacity = useRef(new Animated.Value(0)).current;
 
-  // Confetti animated values
+  // Interactive Tap Sparkles
+  const [tapSparkles, setTapSparkles] = useState<TapSparkle[]>([]);
+
+  // Confetti Animations
   const confettiAnims = useRef(
     CONFETTI_ITEMS.map(() => new Animated.Value(0))
   ).current;
 
+  // ----------------------------------------------------
+  // 3. Multi-Phase Entrance Effect
+  // ----------------------------------------------------
   useEffect(() => {
-    // 1. Trophy Pop & Glow
-    Animated.sequence([
-      Animated.spring(trophyScale, {
+    // A. Sunburst Rotation Loop (Continuous 360)
+    Animated.loop(
+      Animated.timing(sunburstRotation, {
         toValue: 1,
-        friction: 4,
-        tension: 80,
+        duration: 18000,
+        easing: Easing.linear,
         useNativeDriver: true,
-      }),
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(trophyGlow, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(trophyGlow, {
-            toValue: 0.3,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ),
-    ]).start();
+      })
+    ).start();
 
-    // 2. Banner & Title Pop
-    Animated.spring(bannerScale, {
-      toValue: 1,
-      friction: 5,
-      tension: 100,
-      delay: 200,
-      useNativeDriver: true,
-    }).start();
-
-    // 3. Mascot Bounce Loop
+    // B. Shockwave Burst
     Animated.parallel([
-      Animated.spring(mascotScale, {
-        toValue: 1,
-        friction: 5,
-        tension: 90,
-        delay: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(mascotTranslateY, {
-        toValue: 0,
-        duration: 400,
-        delay: 300,
-        easing: Easing.out(Easing.back(1.5)),
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      // Continuous joyful bounce
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(mascotTranslateY, {
-            toValue: -15,
-            duration: 400,
-            easing: Easing.ease,
-            useNativeDriver: true,
-          }),
-          Animated.timing(mascotTranslateY, {
-            toValue: 0,
-            duration: 400,
-            easing: Easing.bounce,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    });
-
-    // 4. Reward Cards Slide-up
-    Animated.parallel([
-      Animated.timing(cardsTranslateY, {
-        toValue: 0,
-        duration: 500,
-        delay: 500,
+      Animated.timing(shockwaveScale, {
+        toValue: 2.5,
+        duration: 800,
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
-      Animated.timing(cardsOpacity, {
-        toValue: 1,
-        duration: 500,
-        delay: 500,
+      Animated.timing(shockwaveOpacity, {
+        toValue: 0,
+        duration: 800,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
     ]).start();
 
-    // 5. Button Entrance
+    // C. Phase 1: Medallion Drop with Bounce
     Animated.parallel([
-      Animated.spring(buttonScale, {
+      Animated.spring(medallionScale, {
         toValue: 1,
-        friction: 6,
-        tension: 100,
-        delay: 700,
+        friction: 4,
+        tension: 90,
         useNativeDriver: true,
       }),
-      Animated.timing(buttonOpacity, {
-        toValue: 1,
-        duration: 400,
-        delay: 700,
+      Animated.spring(medallionRotate, {
+        toValue: 0,
+        friction: 5,
+        tension: 80,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // 6. Confetti falling loops
+    // D. Phase 2: Mascot & Speech Bubble Entrance (after 300ms)
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.spring(mascotScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 90,
+          useNativeDriver: true,
+        }),
+        Animated.timing(mascotTranslateY, {
+          toValue: 0,
+          duration: 400,
+          easing: Easing.out(Easing.back(1.5)),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        // Speech Bubble Spring
+        Animated.spring(speechBubbleScale, {
+          toValue: 1,
+          friction: 4,
+          tension: 100,
+          useNativeDriver: true,
+        }).start();
+
+        // Continuous Mascot Bounce
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(mascotTranslateY, {
+              toValue: -12,
+              duration: 450,
+              easing: Easing.ease,
+              useNativeDriver: true,
+            }),
+            Animated.timing(mascotTranslateY, {
+              toValue: 0,
+              duration: 450,
+              easing: Easing.bounce,
+              useNativeDriver: true,
+            }),
+          ])
+        ).start();
+      });
+    }, 300);
+
+    // E. Phase 3: Stat Cards & Numeric Roll-up (after 800ms)
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.spring(cardScale, {
+          toValue: 1,
+          friction: 6,
+          tension: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Numerical Roll-up Counters
+      let startScore = 0;
+      let startExp = 0;
+      let startCoins = 0;
+      const steps = 20;
+      const interval = 40; // 800ms total duration
+
+      const timer = setInterval(() => {
+        startScore = Math.min(score, startScore + Math.ceil(score / steps));
+        startExp = Math.min(expGained, startExp + Math.ceil(expGained / steps));
+        startCoins = Math.min(
+          coinsGained,
+          startCoins + Math.ceil(coinsGained / steps)
+        );
+
+        setDisplayScore(startScore);
+        setDisplayExp(startExp);
+        setDisplayCoins(startCoins);
+
+        if (
+          startScore >= score &&
+          startExp >= expGained &&
+          startCoins >= coinsGained
+        ) {
+          clearInterval(timer);
+        }
+      }, interval);
+    }, 800);
+
+    // F. Phase 4: Button Reveal (after 1400ms)
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.spring(buttonScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 90,
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, 1400);
+
+    // G. Confetti Particle Loops
     confettiAnims.forEach((anim, idx) => {
       const item = CONFETTI_ITEMS[idx];
-      const startConfetti = () => {
+      const runConfetti = () => {
         anim.setValue(0);
         Animated.timing(anim, {
           toValue: 1,
@@ -196,30 +279,230 @@ export default function CelebrationScreen({
           delay: item.delay,
           easing: Easing.linear,
           useNativeDriver: true,
-        }).start(() => startConfetti());
+        }).start(() => runConfetti());
       };
-      startConfetti();
+      runConfetti();
     });
   }, []);
 
+  // ----------------------------------------------------
+  // 4. Interactive Touch Sparkle Handler
+  // ----------------------------------------------------
+  const handleTouchScreen = (event: GestureResponderEvent) => {
+    const { pageX, pageY } = event.nativeEvent;
+    const newSparkles: TapSparkle[] = Array.from({ length: 5 }).map((_, i) => ({
+      id: Date.now() + i + Math.random(),
+      x: pageX + (Math.random() * 40 - 20),
+      y: pageY + (Math.random() * 40 - 20),
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      size: Math.random() * 12 + 10,
+    }));
+
+    setTapSparkles((prev) => [...prev.slice(-15), ...newSparkles]);
+  };
+
+  const sunburstInterpolate = sunburstRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  const medallionRotateInterpolate = medallionRotate.interpolate({
+    inputRange: [-15, 0],
+    outputRange: ["-15deg", "0deg"],
+  });
+
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        {/* Background Radial Light Glow */}
+      <Pressable style={styles.touchableContainer} onPress={handleTouchScreen}>
+        {/* Background Sunburst Light Rays Layer */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.sunburstContainer,
+            { transform: [{ rotate: sunburstInterpolate }] },
+          ]}
+        >
+          {Array.from({ length: 12 }).map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.sunburstRay,
+                { transform: [{ rotate: `${i * 30}deg` }] },
+              ]}
+            />
+          ))}
+        </Animated.View>
+
+        {/* Central Shockwave Ring */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.shockwaveRing,
+            {
+              opacity: shockwaveOpacity,
+              transform: [{ scale: shockwaveScale }],
+            },
+          ]}
+        />
+
+        {/* Confetti Background Layer (Depth) */}
+        {CONFETTI_ITEMS.filter((item) => item.isBackground).map((item, idx) => {
+          const anim = confettiAnims[idx];
+          const translateY = anim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [-40, SCREEN_HEIGHT + 40],
+          });
+          const translateX = anim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [item.startX, item.endX],
+          });
+          const rotate = anim.interpolate({
+            inputRange: [0, 1],
+            outputRange: ["0deg", `${item.rotateDirection * 360}deg`],
+          });
+          const opacity = anim.interpolate({
+            inputRange: [0, 0.1, 0.8, 1],
+            outputRange: [0, 0.45, 0.45, 0],
+          });
+
+          return (
+            <Animated.View
+              key={`bg-${item.id}`}
+              pointerEvents="none"
+              style={[
+                styles.confettiPiece,
+                {
+                  width: item.size,
+                  height: item.size,
+                  borderRadius: item.isCircle ? item.size / 2 : 2,
+                  backgroundColor: item.color,
+                  opacity,
+                  transform: [{ translateX }, { translateY }, { rotate }],
+                },
+              ]}
+            />
+          );
+        })}
+
+        {/* Main Victory Header - 3D Vector Medallion */}
         <Animated.View
           style={[
-            styles.glowContainer,
+            styles.medallionWrapper,
             {
-              opacity: trophyGlow,
-              transform: [{ scale: trophyGlow.interpolate({ inputRange: [0.3, 1], outputRange: [0.9, 1.15] }) }],
+              transform: [
+                { scale: medallionScale },
+                { rotate: medallionRotateInterpolate },
+              ],
             },
           ]}
         >
-          <View style={styles.radialGlow} />
+          <View style={styles.medallionOuterRing}>
+            <View style={styles.medallionInnerCircle}>
+              <Text style={styles.medallionStarIcon}>⭐</Text>
+              <Text style={styles.medallionTitleText}>PERFECT</Text>
+              <Text style={styles.medallionScoreText}>100%</Text>
+            </View>
+            {/* Ribbon Banner */}
+            <View style={styles.ribbonBanner}>
+              <Text style={styles.ribbonBannerText}>पूर्णता विजय (100%)</Text>
+            </View>
+          </View>
         </Animated.View>
 
-        {/* Floating Confetti Particles Layer */}
-        {CONFETTI_ITEMS.map((item, idx) => {
+        {/* Mascot & Sanskrit Victory Speech Bubble */}
+        <View style={styles.mascotSection}>
+          <Animated.View
+            style={[
+              styles.mascotWrapper,
+              {
+                transform: [
+                  { scale: mascotScale },
+                  { translateY: mascotTranslateY },
+                ],
+              },
+            ]}
+          >
+            <Mascot expression="excited" size={140} />
+          </Animated.View>
+
+          {/* Dynamic Speech Bubble */}
+          <Animated.View
+            style={[
+              styles.speechBubble,
+              {
+                transform: [{ scale: speechBubbleScale }],
+              },
+            ]}
+          >
+            <View style={styles.speechArrow} />
+            <Text style={styles.speechTitle}>अद्‌भुतम्! शतप्रतिशतम्! 🌟</Text>
+            <Text style={styles.speechSubtitle}>
+              आपने सभी प्रश्नों के सही उत्तर दिए!
+            </Text>
+          </Animated.View>
+        </View>
+
+        {/* Rolling Numeric Stat Reward Cards */}
+        <Animated.View
+          style={[
+            styles.statsRow,
+            {
+              opacity: cardOpacity,
+              transform: [{ scale: cardScale }],
+            },
+          ]}
+        >
+          {/* Accuracy Card */}
+          <View style={[styles.statCard, styles.accuracyCardBorder]}>
+            <View style={[styles.cardBadgeHeader, { backgroundColor: "#fff8d6" }]}>
+              <Text style={styles.cardHeaderIcon}>🎯</Text>
+            </View>
+            <Text style={styles.cardValueText}>{displayScore}%</Text>
+            <Text style={styles.cardLabelText}>सटीकता</Text>
+          </View>
+
+          {/* XP Card */}
+          <View style={[styles.statCard, styles.xpCardBorder]}>
+            <View style={[styles.cardBadgeHeader, { backgroundColor: "#eefdff" }]}>
+              <Text style={styles.cardHeaderIcon}>⚡</Text>
+            </View>
+            <Text style={styles.cardValueText}>+{displayExp}</Text>
+            <Text style={styles.cardLabelText}>EXP बोनस</Text>
+          </View>
+
+          {/* Coins Card */}
+          <View style={[styles.statCard, styles.coinCardBorder]}>
+            <View style={[styles.cardBadgeHeader, { backgroundColor: "#fff5ea" }]}>
+              <Text style={styles.cardHeaderIcon}>🪙</Text>
+            </View>
+            <Text style={styles.cardValueText}>+{displayCoins}</Text>
+            <Text style={styles.cardLabelText}>सिक्के</Text>
+          </View>
+        </Animated.View>
+
+        {/* Interactive Touch Sparkles Overlay */}
+        {tapSparkles.map((sparkle) => (
+          <View
+            key={sparkle.id}
+            pointerEvents="none"
+            style={[
+              styles.tapSparkle,
+              {
+                left: sparkle.x - sparkle.size / 2,
+                top: sparkle.y - sparkle.size / 2,
+                width: sparkle.size,
+                height: sparkle.size,
+                backgroundColor: sparkle.color,
+                borderRadius: sparkle.size / 2,
+              },
+            ]}
+          >
+            <Text style={{ fontSize: 10 }}>✨</Text>
+          </View>
+        ))}
+
+        {/* Confetti Foreground Layer */}
+        {CONFETTI_ITEMS.filter((item) => !item.isBackground).map((item, idx) => {
           const anim = confettiAnims[idx];
           const translateY = anim.interpolate({
             inputRange: [0, 1],
@@ -231,10 +514,7 @@ export default function CelebrationScreen({
           });
           const rotate = anim.interpolate({
             inputRange: [0, 1],
-            outputRange: [
-              "0deg",
-              `${item.rotateDirection * 720}deg`,
-            ],
+            outputRange: ["0deg", `${item.rotateDirection * 720}deg`],
           });
           const opacity = anim.interpolate({
             inputRange: [0, 0.1, 0.85, 1],
@@ -243,14 +523,14 @@ export default function CelebrationScreen({
 
           return (
             <Animated.View
-              key={item.id}
+              key={`fg-${item.id}`}
               pointerEvents="none"
               style={[
                 styles.confettiPiece,
                 {
-                  width: item.isRibbon ? item.size * 0.4 : item.size,
+                  width: item.isRibbon ? item.size * 0.35 : item.size,
                   height: item.size,
-                  borderRadius: item.isCircle ? item.size / 2 : item.isRibbon ? 2 : 3,
+                  borderRadius: item.isCircle ? item.size / 2 : 3,
                   backgroundColor: item.color,
                   opacity,
                   transform: [{ translateX }, { translateY }, { rotate }],
@@ -260,89 +540,10 @@ export default function CelebrationScreen({
           );
         })}
 
-        {/* Header Victory Crown & Trophy */}
+        {/* Footer 3D Duolingo CTA Button */}
         <Animated.View
           style={[
-            styles.trophyWrapper,
-            {
-              transform: [{ scale: trophyScale }],
-            },
-          ]}
-        >
-          <View style={styles.trophyBadge}>
-            <Text style={styles.trophyEmoji}>🏆</Text>
-            <View style={styles.perfectionBadge}>
-              <Text style={styles.perfectionText}>100% PERFECT</Text>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* Title Banner */}
-        <Animated.View
-          style={[
-            styles.bannerContainer,
-            {
-              transform: [{ scale: bannerScale }],
-            },
-          ]}
-        >
-          <Text style={styles.victoryTitle}>सर्वोत्कृष्टम्! 🎉</Text>
-          <Text style={styles.victorySubtitle}>
-            अद्भुत कार्य! आपने शत-प्रतिशत (100%) अंक प्राप्त करके संपूर्ण विजय हासिल की!
-          </Text>
-        </Animated.View>
-
-        {/* Mascot Joyful Animation */}
-        <Animated.View
-          style={[
-            styles.mascotContainer,
-            {
-              transform: [
-                { translateY: mascotTranslateY },
-                { scale: mascotScale },
-              ],
-            },
-          ]}
-        >
-          <Mascot expression="excited" size={150} />
-          {/* Sparkle Emojis around Mascot */}
-          <Text style={[styles.sparkle, styles.sparkleLeft]}>✨</Text>
-          <Text style={[styles.sparkle, styles.sparkleRight]}>🌟</Text>
-        </Animated.View>
-
-        {/* Rewards Row (Bonus XP & Coins for 100% Score) */}
-        <Animated.View
-          style={[
-            styles.rewardsRow,
-            {
-              opacity: cardsOpacity,
-              transform: [{ translateY: cardsTranslateY }],
-            },
-          ]}
-        >
-          <View style={[styles.rewardCard, styles.goldCard]}>
-            <Text style={styles.rewardIcon}>🎯</Text>
-            <Text style={styles.rewardValue}>100%</Text>
-            <Text style={styles.rewardLabel}>सटीकता (Score)</Text>
-          </View>
-
-          <View style={[styles.rewardCard, styles.xpCard]}>
-            <Text style={styles.rewardIcon}>⚡</Text>
-            <Text style={styles.rewardValue}>+{expGained} EXP</Text>
-            <Text style={styles.rewardLabel}>बोनस अनुभव</Text>
-          </View>
-
-          <View style={[styles.rewardCard, styles.coinCard]}>
-            <Text style={styles.rewardIcon}>🪙</Text>
-            <Text style={styles.rewardValue}>+{coinsGained} Coins</Text>
-            <Text style={styles.rewardLabel}>बोनस सिक्के</Text>
-          </View>
-        </Animated.View>
-
-        {/* Action Button */}
-        <Animated.View
-          style={[
-            styles.buttonWrapper,
+            styles.footerContainer,
             {
               opacity: buttonOpacity,
               transform: [{ scale: buttonScale }],
@@ -350,52 +551,256 @@ export default function CelebrationScreen({
           ]}
         >
           <Button
-            title="उत्कृष्टम्! (Continue)"
+            title="आगे बढ़ें (Continue)"
             onPress={onContinue}
             variant="primary"
             style={styles.ctaButton}
           />
         </Animated.View>
-      </View>
+      </Pressable>
     </SafeAreaView>
   );
 }
 
+// ----------------------------------------------------
+// 5. Duolingo-Styled Premium Victory Styles
+// ----------------------------------------------------
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: "#ddf4ff", // Soft pale blue
   },
-  container: {
+  touchableContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.lg,
-    overflow: "hidden",
+    paddingVertical: SPACING.md,
   },
-  glowContainer: {
+
+  /* Sunburst Rotating Background */
+  sunburstContainer: {
     position: "absolute",
-    top: SCREEN_HEIGHT * 0.15,
-    alignSelf: "center",
-    width: 300,
-    height: 300,
-    borderRadius: 150,
+    top: SCREEN_HEIGHT * 0.1,
+    width: 600,
+    height: 600,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 0,
   },
-  radialGlow: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: "#fff0a6",
-    opacity: 0.6,
-    shadowColor: "#ffc800",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 50,
-    elevation: 20,
+  sunburstRay: {
+    position: "absolute",
+    width: 600,
+    height: 40,
+    backgroundColor: "rgba(255, 235, 150, 0.35)",
+    borderRadius: 20,
+  },
+
+  /* Shockwave Burst */
+  shockwaveRing: {
+    position: "absolute",
+    top: SCREEN_HEIGHT * 0.22,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 8,
+    borderColor: "#ffc800",
+    zIndex: 0,
+  },
+
+  /* 3D Vector Medallion */
+  medallionWrapper: {
+    marginTop: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 3,
+  },
+  medallionOuterRing: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "#ffc800",
+    borderWidth: 6,
+    borderColor: "#e6a100",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    position: "relative",
+  },
+  medallionInnerCircle: {
+    width: 118,
+    height: 118,
+    borderRadius: 59,
+    backgroundColor: "#ffffff",
+    borderWidth: 4,
+    borderColor: "#ffda47",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 12,
+  },
+  medallionStarIcon: {
+    fontSize: 22,
+    marginBottom: -2,
+  },
+  medallionTitleText: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: "#e6a100",
+    letterSpacing: 1.2,
+    textAlign: "center",
+  },
+  medallionScoreText: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: COLORS.text,
+    marginTop: -2,
+    textAlign: "center",
+  },
+  ribbonBanner: {
+    position: "absolute",
+    bottom: -14,
+    alignSelf: "center",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#a5ed6e",
+    borderWidth: 3,
+    borderColor: "#78ca28",
+    borderRadius: RADII.md,
+    paddingHorizontal: 16,
+    paddingVertical: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  ribbonBannerText: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#111111",
+    letterSpacing: 0.5,
+    textAlign: "center",
+  },
+
+  /* Mascot & Speech Bubble */
+  mascotSection: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    zIndex: 3,
+    marginVertical: 10,
+  },
+  mascotWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  speechBubble: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: COLORS.accent,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    alignItems: "center",
+    marginTop: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
+    position: "relative",
+  },
+  speechArrow: {
+    position: "absolute",
+    top: -10,
+    width: 0,
+    height: 0,
+    borderStyle: "solid",
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderBottomWidth: 10,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: COLORS.accent,
+  },
+  speechTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: COLORS.text,
+    textAlign: "center",
+  },
+  speechSubtitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.textMuted,
+    textAlign: "center",
+    marginTop: 2,
+  },
+
+  /* Rolling Stat Cards */
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    zIndex: 3,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    borderWidth: 3,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    marginHorizontal: 4,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  accuracyCardBorder: {
+    borderColor: "#ffc800",
+  },
+  xpCardBorder: {
+    borderColor: COLORS.primary,
+  },
+  coinCardBorder: {
+    borderColor: COLORS.accent,
+  },
+  cardBadgeHeader: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  cardHeaderIcon: {
+    fontSize: 18,
+  },
+  cardValueText: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: COLORS.text,
+  },
+  cardLabelText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+
+  /* Interactive Sparkles & Confetti */
+  tapSparkle: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
   },
   confettiPiece: {
     position: "absolute",
@@ -403,132 +808,12 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 10,
   },
-  trophyWrapper: {
-    marginTop: SPACING.sm,
-    alignItems: "center",
-    zIndex: 2,
-  },
-  trophyBadge: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  trophyEmoji: {
-    fontSize: 64,
-    textShadowColor: "rgba(255, 200, 0, 0.6)",
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 10,
-  },
-  perfectionBadge: {
-    backgroundColor: "#ffc800",
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    borderRadius: RADII.md,
-    marginTop: -8,
-    borderWidth: 2,
-    borderColor: "#e6a100",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-  },
-  perfectionText: {
-    fontSize: 12,
-    fontWeight: "900",
-    color: "#111111",
-    letterSpacing: 1,
-  },
-  bannerContainer: {
-    alignItems: "center",
-    marginHorizontal: SPACING.md,
-    zIndex: 2,
-  },
-  victoryTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: COLORS.text,
-    textAlign: "center",
-    marginBottom: 6,
-  },
-  victorySubtitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.textMuted,
-    textAlign: "center",
-    lineHeight: 21,
-  },
-  mascotContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 8,
-    zIndex: 2,
-  },
-  sparkle: {
-    position: "absolute",
-    fontSize: 28,
-  },
-  sparkleLeft: {
-    top: 10,
-    left: -20,
-  },
-  sparkleRight: {
-    bottom: 20,
-    right: -20,
-  },
-  rewardsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+
+  /* Footer Button */
+  footerContainer: {
     width: "100%",
-    paddingHorizontal: SPACING.sm,
-    zIndex: 2,
-  },
-  rewardCard: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    borderRadius: RADII.md,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    marginHorizontal: 4,
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    shadowColor: "rgb(128, 128, 128)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  goldCard: {
-    borderColor: "#ffc800",
-    backgroundColor: "#fffdf0",
-  },
-  xpCard: {
-    borderColor: COLORS.primary,
-    backgroundColor: "#f4fdf0",
-  },
-  coinCard: {
-    borderColor: COLORS.accent,
-    backgroundColor: "#f0f9ff",
-  },
-  rewardIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  rewardValue: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: COLORS.text,
-  },
-  rewardLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  buttonWrapper: {
-    width: "100%",
-    paddingHorizontal: SPACING.sm,
-    marginBottom: SPACING.sm,
-    zIndex: 2,
+    zIndex: 4,
+    marginBottom: 5,
   },
   ctaButton: {
     width: "100%",
