@@ -7,6 +7,7 @@ import Mascot from "../components/ui/Mascot";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import ProgressBar from "../components/ui/ProgressBar";
+import CelebrationScreen from "../components/ui/CelebrationScreen";
 import { useGame } from "../context/GameContext";
 import { buildLevelsForCategory } from "../utils/levelBuilder";
 
@@ -329,9 +330,12 @@ export default function QuizScreen() {
     // Save level completion score
     await completeLevel(levelId, finalScore);
 
-    // Reward XP & Coins
-    await addCoins(5);
-    await addExp(10);
+    // Reward XP & Coins (Bonus rewards for 100% perfect score!)
+    const coinsReward = finalScore === 100 ? 10 : 5;
+    const expReward = finalScore === 100 ? 20 : 10;
+
+    await addCoins(coinsReward);
+    await addExp(expReward);
 
     router.replace({
       pathname: "/exerciseSelection",
@@ -339,10 +343,22 @@ export default function QuizScreen() {
     });
   };
 
-  // Render Lesson Complete Screen
+  // Render Lesson Complete / Celebration Screen
   if (quizFinished) {
     const finalScore = Math.round((correctCount / totalQuestions) * 100);
     const isLevelPassed = finalScore >= 75;
+
+    // Show high-energy Animated Celebration Screen for 100% perfection!
+    if (finalScore === 100) {
+      return (
+        <CelebrationScreen
+          score={100}
+          expGained={20}
+          coinsGained={10}
+          onContinue={handleFinishQuiz}
+        />
+      );
+    }
 
     return (
       <SafeAreaView style={styles.safe}>
