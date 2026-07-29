@@ -444,7 +444,13 @@ export default function QuizScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: isChecked ? 340 : 160 }
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Mascot Speech Bubble */}
         <View style={styles.mascotSection}>
           <Mascot expression={mascotExpression} size={90} style={styles.mascot} />
@@ -718,30 +724,51 @@ export default function QuizScreen() {
         {isChecked && (
           <View style={styles.feedbackContainer}>
             <Text style={[styles.feedbackTitle, isCorrect ? styles.textCorrect : styles.textIncorrect]}>
-              {isCorrect ? "अति उत्तम! 🎉 (Correct!)" : "अशुद्धम् ⚠️ (Incorrect)"}
+              {isCorrect ? "अति उत्तम! (Correct!)" : "अशुद्धम् (Incorrect)"}
             </Text>
 
-            <ScrollView style={styles.explanationScroll} nestedScrollEnabled>
-              {!isCorrect && quizType !== "Match_Following" && (
-                <Text style={styles.correctAnswerLabel}>
-                  सही उत्तर:{" "}
-                  {quizType === "Multi_Select" || quizType === "Vocabulary_Breakdown"
-                    ? currentQuestion.Correct_Answer.split(",")
-                        .map((key) => {
-                          const opt = options.find((o) => o.key === key.trim());
-                          return opt ? opt.text : key;
-                        })
-                        .join(", ")
-                    : currentQuestion.Correct_Answer.replace(/;/g, ", ")}
-                </Text>
-              )}
-              {currentQuestion.Explanation && (
-                <Text style={styles.explanationText}>💡 {currentQuestion.Explanation}</Text>
-              )}
-              {currentQuestion.Vocabulary_Breakdown && (
-                <Text style={styles.vocabText}>📚 {currentQuestion.Vocabulary_Breakdown}</Text>
-              )}
-            </ScrollView>
+            {!isCorrect && quizType !== "Match_Following" && (
+              <Text style={styles.correctAnswerLabel}>
+                सही उत्तर:{" "}
+                {quizType === "Multi_Select" || quizType === "Vocabulary_Breakdown"
+                  ? currentQuestion.Correct_Answer.split(",")
+                      .map((key) => {
+                        const opt = options.find((o) => o.key === key.trim());
+                        return opt ? opt.text : key;
+                      })
+                      .join(", ")
+                  : currentQuestion.Correct_Answer.replace(/;/g, ", ")}
+              </Text>
+            )}
+
+            {(currentQuestion.Explanation || currentQuestion.Vocabulary_Breakdown) && (
+              <View
+                style={[
+                  styles.explanationCard,
+                  isCorrect ? styles.explanationCardCorrect : styles.explanationCardIncorrect,
+                ]}
+              >
+                {currentQuestion.Explanation && (
+                  <View style={styles.infoSection}>
+                    <Text style={styles.boldLabel}>व्याख्या (EXPLANATION)</Text>
+                    <Text style={styles.explanationText}>
+                      {currentQuestion.Explanation}
+                    </Text>
+                  </View>
+                )}
+                {currentQuestion.Explanation && currentQuestion.Vocabulary_Breakdown && (
+                  <View style={styles.divider} />
+                )}
+                {currentQuestion.Vocabulary_Breakdown && (
+                  <View style={styles.infoSection}>
+                    <Text style={styles.boldLabel}>शब्दावली (VOCABULARY)</Text>
+                    <Text style={styles.vocabText}>
+                      {currentQuestion.Vocabulary_Breakdown}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         )}
 
@@ -1114,8 +1141,8 @@ const styles = StyleSheet.create({
     borderTopColor: "#ffadad",
   },
   feedbackContainer: {
-    maxHeight: 140,
-    marginBottom: 5,
+    marginBottom: 8,
+    width: "100%",
   },
   feedbackTitle: {
     ...TYPOGRAPHY.display,
@@ -1128,21 +1155,44 @@ const styles = StyleSheet.create({
   textIncorrect: {
     color: COLORS.errorDark,
   },
-  explanationScroll: {
-    flex: 1,
-  },
   correctAnswerLabel: {
     ...TYPOGRAPHY.body,
     fontSize: 13,
     color: COLORS.errorDark,
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  explanationCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADII.md,
+    padding: 12,
+    borderWidth: 1.5,
+    marginTop: 6,
+  },
+  explanationCardCorrect: {
+    borderColor: "rgba(75, 138, 8, 0.18)",
+  },
+  explanationCardIncorrect: {
+    borderColor: "rgba(234, 43, 43, 0.18)",
+  },
+  infoSection: {
+    gap: 4,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(0,0,0,0.06)",
+    marginVertical: 10,
+  },
+  boldLabel: {
+    ...TYPOGRAPHY.body,
+    fontSize: 11,
+    color: COLORS.textMuted,
+    letterSpacing: 0.5,
   },
   explanationText: {
     ...TYPOGRAPHY.bodyRegular,
     fontSize: 13,
     color: COLORS.text,
     lineHeight: 18,
-    marginBottom: 4,
   },
   vocabText: {
     ...TYPOGRAPHY.bodyRegular,
