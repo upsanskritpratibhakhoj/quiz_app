@@ -45,10 +45,28 @@ if (content.includes('abiFilters')) {
     process.exit(1);
   }
 }
-
 if (modified) {
   fs.writeFileSync(gradlePath, content, 'utf8');
   console.log('Successfully updated android/app/build.gradle with optimized release settings.');
 } else {
   console.log('No modifications were made to android/app/build.gradle.');
+}
+
+// 4. Configure Custom Proguard Rules for R8
+const proguardPath = path.join(__dirname, '../android/app/proguard-rules.pro');
+if (fs.existsSync(proguardPath)) {
+  let proguardContent = fs.readFileSync(proguardPath, 'utf8');
+  const customRules = `
+# Custom Expo module R8 / Proguard rules to fix missing class errors
+-keep class expo.modules.** { *; }
+-dontwarn expo.modules.**
+`;
+  if (!proguardContent.includes('-dontwarn expo.modules.**')) {
+    fs.writeFileSync(proguardPath, proguardContent + customRules, 'utf8');
+    console.log('Successfully appended custom Proguard rules to proguard-rules.pro');
+  } else {
+    console.log('Custom Proguard rules already present in proguard-rules.pro');
+  }
+} else {
+  console.error(`Warning: android/app/proguard-rules.pro not found at ${proguardPath}`);
 }
