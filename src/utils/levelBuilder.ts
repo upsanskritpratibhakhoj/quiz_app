@@ -109,7 +109,7 @@ export function chunkQuestions(questions: any[]): any[][] {
  * Build levels for a given category and path
  */
 export function buildLevelsForCategory(category: string, pathSelection: string): Level[] {
-  const classGroup = pathSelection === "beginner" ? "बाल वर्ग (6-12)" : "युवा वर्ग (B.A.-M.A.)";
+  const classGroup = pathSelection === "beginner" ? "बाल वर्ग" : "युवा वर्ग";
   const categoryData = (questionsRegistry as any)[classGroup]?.[category] || {};
 
   const levels: Level[] = [];
