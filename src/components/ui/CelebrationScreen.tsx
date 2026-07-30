@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -84,37 +84,37 @@ export default function CelebrationScreen({
   // ----------------------------------------------------
   // 2. Animated Values for Multi-Phase Entrance
   // ----------------------------------------------------
-  const sunburstRotation = useRef(new Animated.Value(0)).current;
-  const shockwaveScale = useRef(new Animated.Value(0)).current;
-  const shockwaveOpacity = useRef(new Animated.Value(1)).current;
+  const [sunburstRotation] = useState(() => new Animated.Value(0));
+  const [shockwaveScale] = useState(() => new Animated.Value(0));
+  const [shockwaveOpacity] = useState(() => new Animated.Value(1));
 
   // Phase 1: Medallion
-  const medallionScale = useRef(new Animated.Value(0)).current;
-  const medallionRotate = useRef(new Animated.Value(-15)).current;
+  const [medallionScale] = useState(() => new Animated.Value(0));
+  const [medallionRotate] = useState(() => new Animated.Value(-15));
 
   // Phase 2: Mascot & Speech Bubble
-  const mascotScale = useRef(new Animated.Value(0)).current;
-  const mascotTranslateY = useRef(new Animated.Value(30)).current;
-  const speechBubbleScale = useRef(new Animated.Value(0)).current;
+  const [mascotScale] = useState(() => new Animated.Value(0));
+  const [mascotTranslateY] = useState(() => new Animated.Value(30));
+  const [speechBubbleScale] = useState(() => new Animated.Value(0));
 
   // Phase 3: Roll-up Stat Counters
   const [displayScore, setDisplayScore] = useState(0);
   const [displayExp, setDisplayExp] = useState(0);
   const [displayCoins, setDisplayCoins] = useState(0);
-  const cardScale = useRef(new Animated.Value(0.8)).current;
-  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const [cardScale] = useState(() => new Animated.Value(0.8));
+  const [cardOpacity] = useState(() => new Animated.Value(0));
 
   // Phase 4: CTA Button
-  const buttonScale = useRef(new Animated.Value(0.85)).current;
-  const buttonOpacity = useRef(new Animated.Value(0)).current;
+  const [buttonScale] = useState(() => new Animated.Value(0.85));
+  const [buttonOpacity] = useState(() => new Animated.Value(0));
 
   // Interactive Tap Sparkles
   const [tapSparkles, setTapSparkles] = useState<TapSparkle[]>([]);
 
   // Confetti Animations
-  const confettiAnims = useRef(
+  const [confettiAnims] = useState(() =>
     CONFETTI_ITEMS.map(() => new Animated.Value(0))
-  ).current;
+  );
 
   // ----------------------------------------------------
   // 3. Multi-Phase Entrance Effect

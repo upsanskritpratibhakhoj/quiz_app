@@ -44,10 +44,10 @@ export default function Dashboard() {
           <Mascot expression="excited" size={150} style={styles.mascot} />
           
           <Text style={styles.congratsText}>
-            You're all set!
+            {"You're all set!"}
           </Text>
           <Text style={styles.subtext}>
-            We've customized a learning path just for you. Here is your plan summary:
+            {"We've customized a learning path just for you. Here is your plan summary:"}
           </Text>
 
           {/* Plan Summary Card */}

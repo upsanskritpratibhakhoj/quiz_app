@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView, Alert, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,6 +11,7 @@ import ProgressBar from "../components/ui/ProgressBar";
 import CelebrationScreen from "../components/ui/CelebrationScreen";
 import { useGame } from "../context/GameContext";
 import { buildLevelsForCategory } from "../utils/levelBuilder";
+import { playSound } from "../utils/audio";
 
 interface QuestionData {
   Question: string;
@@ -93,6 +95,13 @@ export default function QuizScreen() {
     }
   }, [hearts]);
 
+  // Play level_over sound when level is finished
+  useEffect(() => {
+    if (quizFinished) {
+      playSound("level_over");
+    }
+  }, [quizFinished]);
+
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
   const quizType = currentLevel?.type || "MCQ";
@@ -162,6 +171,7 @@ export default function QuizScreen() {
       // Wrong pairing deducts heart instantly and resets selections
       Alert.alert("गलत मिलान! ⚠️", `"${selectedLeft}" का मिलान "${selectedRight}" से नहीं है।`);
       loseHeart();
+      playSound("wrong_answer");
       setSelectedLeft(null);
       setSelectedRight(null);
     }
@@ -276,8 +286,10 @@ export default function QuizScreen() {
 
     if (correct) {
       setCorrectCount((prev) => prev + 1);
+      playSound("correct_answer");
     } else {
       await loseHeart();
+      playSound("wrong_answer");
     }
   };
 

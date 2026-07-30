@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, View, Animated, Pressable, Text } from "react-native";
 import { COLORS, RADII } from "../../constants/theme";
 
@@ -8,7 +8,7 @@ interface ProgressBarProps {
 }
 
 export default function ProgressBar({ progress, onBack }: ProgressBarProps) {
-  const animatedWidth = useRef(new Animated.Value(progress)).current;
+  const [animatedWidth] = useState(() => new Animated.Value(progress));
 
   useEffect(() => {
     Animated.timing(animatedWidth, {
@@ -16,7 +16,7 @@ export default function ProgressBar({ progress, onBack }: ProgressBarProps) {
       duration: 300,
       useNativeDriver: false,
     }).start();
-  }, [progress]);
+  }, [progress, animatedWidth]);
 
   const widthInterpolation = animatedWidth.interpolate({
     inputRange: [0, 1],

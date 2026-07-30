@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { StyleSheet, Text, View, Modal, Pressable, Alert } from "react-native";
 import { useGame } from "../../context/GameContext";
-import { COLORS, TYPOGRAPHY, RADII, SPACING } from "../../constants/theme";
+import { COLORS, TYPOGRAPHY, RADII } from "../../constants/theme";
 import Mascot from "./Mascot";
 import Button from "./Button";
 
