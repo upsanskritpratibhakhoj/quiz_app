@@ -6,10 +6,10 @@ import {
   Animated,
   Easing,
   Dimensions,
-  SafeAreaView,
   Pressable,
   GestureResponderEvent,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, SPACING, RADII } from "../../constants/theme";
 import Mascot from "./Mascot";
 import Button from "./Button";
