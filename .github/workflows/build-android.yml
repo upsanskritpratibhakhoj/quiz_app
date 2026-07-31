@@ -26,17 +26,17 @@ jobs:
 
       # Dynamically generate the android/ folder in the CI runner
       - name: Prebuild Android project
-        run: bun expo prebuild --platform android --no-install
+        run: bunx expo prebuild --platform android --no-install
 
       # Customize build.gradle with minification, shrinking, and abiFilters (armeabi-v7a, arm64-v8a)
-      - name: Configure Android build options
-        run: node scripts/configure-android-build.js
+      # - name: Configure Android build options
+      #   run: node scripts/configure-android-build.js
 
       - name: Build Android App (Release APK)
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a -Pandroid.enableMinifyInReleaseBuilds=true -Pandroid.enableShrinkResourcesInReleaseBuilds=true 
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
