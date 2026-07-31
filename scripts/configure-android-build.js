@@ -56,17 +56,34 @@ if (modified) {
 const proguardPath = path.join(__dirname, '../android/app/proguard-rules.pro');
 if (fs.existsSync(proguardPath)) {
   let proguardContent = fs.readFileSync(proguardPath, 'utf8');
+  const customRulesMarker = '# Custom Expo module R8 / Proguard rules';
   const customRules = `
-# Custom Expo module R8 / Proguard rules to fix missing class errors
+${customRulesMarker} to fix missing class errors
 -keep class expo.modules.** { *; }
+-keep class expo.modules.kotlin.** { *; }
+-keepclassmembers class * {
+    @expo.modules.core.interfaces.ExpoProp *;
+}
 -dontwarn expo.modules.**
+-dontwarn expo.modules.kotlin.**
+
+# Keep Kotlin Metadata (needed for kotlin-reflect to work in Expo Kotlin interop)
+-keep class kotlin.Metadata { *; }
+
+# Keep Kotlin reflection classes
+-keep class kotlin.reflect.** { *; }
+-dontwarn kotlin.reflect.**
 `;
-  if (!proguardContent.includes('-dontwarn expo.modules.**')) {
-    fs.writeFileSync(proguardPath, proguardContent + customRules, 'utf8');
-    console.log('Successfully appended custom Proguard rules to proguard-rules.pro');
-  } else {
-    console.log('Custom Proguard rules already present in proguard-rules.pro');
+
+  // Remove existing custom rules block if present, then append the new rules
+  const markerIndex = proguardContent.indexOf(customRulesMarker);
+  if (markerIndex !== -1) {
+    proguardContent = proguardContent.substring(0, markerIndex);
   }
+
+  fs.writeFileSync(proguardPath, proguardContent.trim() + '\n' + customRules, 'utf8');
+  console.log('Successfully updated custom Proguard rules in proguard-rules.pro');
 } else {
   console.error(`Warning: android/app/proguard-rules.pro not found at ${proguardPath}`);
 }
+
