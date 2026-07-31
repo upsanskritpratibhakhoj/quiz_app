@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View, ViewStyle } from "react-native";
+import { StyleSheet, View, ViewStyle, Platform } from "react-native";
 import { COLORS } from "../../constants/theme";
 
 interface MascotProps {
@@ -265,10 +265,17 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: "43%",
     zIndex: 4,
-    shadowColor: COLORS.warningDark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
+    ...Platform.select({
+      web: {
+        boxShadow: `0px 2px 0px ${COLORS.warningDark}`,
+      },
+      default: {
+        shadowColor: COLORS.warningDark,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+      },
+    }),
   },
   cheeksRow: {
     flexDirection: "row",

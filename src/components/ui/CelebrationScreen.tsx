@@ -8,6 +8,7 @@ import {
   Dimensions,
   Pressable,
   GestureResponderEvent,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS, SPACING, RADII } from "../../constants/theme";
@@ -624,10 +625,17 @@ const styles = StyleSheet.create({
     borderColor: "#e6a100",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 6px 8px rgba(0, 0, 0, 0.25)",
+      },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+    }),
     elevation: 8,
     position: "relative",
   },
@@ -672,10 +680,17 @@ const styles = StyleSheet.create({
     borderRadius: RADII.md,
     paddingHorizontal: 16,
     paddingVertical: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 3px 4px rgba(0, 0, 0, 0.2)",
+      },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+    }),
     elevation: 4,
   },
   ribbonBannerText: {
@@ -707,10 +722,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: "center",
     marginTop: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 3px 4px rgba(0, 0, 0, 0.12)",
+      },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.12,
+        shadowRadius: 4,
+      },
+    }),
     elevation: 3,
     position: "relative",
   },
@@ -757,10 +779,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     marginHorizontal: 4,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 4px 5px rgba(0, 0, 0, 0.1)",
+      },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+      },
+    }),
     elevation: 4,
   },
   accuracyCardBorder: {

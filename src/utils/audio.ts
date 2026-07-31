@@ -9,48 +9,48 @@ const sounds: Record<SoundType, any> = {
   level_over: require("../../assets/audio/level_over.wav"),
 };
 
-let Audio: any = null;
+let expoAudioLib: any = null;
 let isAudioLoadingFailed = false;
 
-// Bypasses check on Web. On native platforms, check if ExponentAV module exists.
-const hasExponentAV = Platform.OS === "web" || (
+// Bypasses check on Web. On native platforms, check if ExpoAudio module exists.
+const hasExpoAudio = Platform.OS === "web" || (
   typeof requireOptionalNativeModule === "function" && 
-  !!requireOptionalNativeModule("ExponentAV")
+  !!requireOptionalNativeModule("ExpoAudio")
 );
 
-async function getAudio() {
-  if (Audio) return Audio;
-  if (isAudioLoadingFailed || !hasExponentAV) return null;
+async function getExpoAudio() {
+  if (expoAudioLib) return expoAudioLib;
+  if (isAudioLoadingFailed || !hasExpoAudio) return null;
   try {
-    const expoAv = await import("expo-av");
-    Audio = expoAv.Audio;
-    return Audio;
+    const lib = await import("expo-audio");
+    expoAudioLib = lib;
+    return expoAudioLib;
   } catch (error) {
     isAudioLoadingFailed = true;
-    console.warn("expo-av failed to load. Audio feedback will be disabled.", error);
+    console.warn("expo-audio failed to load. Audio feedback will be disabled.", error);
     return null;
   }
 }
 
 export async function playSound(type: SoundType) {
   try {
-    const audioLib = await getAudio();
+    const audioLib = await getExpoAudio();
     if (!audioLib) {
       console.warn(`Audio playback disabled. Cannot play sound: ${type}`);
       return;
     }
-    const { sound } = await audioLib.Sound.createAsync(sounds[type]);
-    await sound.playAsync();
-    
-    // Automatically unload sound from memory when done playing
-    sound.setOnPlaybackStatusUpdate((status: any) => {
-      if (status.isLoaded && status.didJustFinish) {
-        sound.unloadAsync();
+    const player = audioLib.createAudioPlayer(sounds[type]);
+    const subscription = player.addListener("playbackStatusUpdate", (status: any) => {
+      if (status.didJustFinish) {
+        subscription.remove();
+        player.remove();
       }
     });
+    player.play();
   } catch (error) {
     console.error(`Failed to play sound: ${type}`, error);
   }
 }
+
 
 
