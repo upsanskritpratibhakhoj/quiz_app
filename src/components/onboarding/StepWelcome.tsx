@@ -16,7 +16,7 @@ export default function StepWelcome({ onNext }: StepWelcomeProps) {
         <View style={styles.heroSection}>
           <Mascot expression="happy" size={150} />
           
-          <Text style={styles.title}>duolingo</Text>
+          <Text style={styles.title}>वाक्यशिल्पी </Text>
           
           <Text style={styles.subtitle}>
             Learn a language for free.{"\n"}Forever.

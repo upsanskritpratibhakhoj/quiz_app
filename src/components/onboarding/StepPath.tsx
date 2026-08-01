@@ -63,7 +63,7 @@ export default function StepPath({
           <View style={styles.cardContent}>
             <PathIcon type="beginner" />
             <View style={styles.cardTextContainer}>
-              <Text style={styles.pathTitle}>6th-12th Class</Text>
+              <Text style={styles.pathTitle}>बाल वर्ग</Text>
               <Text style={styles.pathSubtitle}>
                 First time learning Sanskrit? Start with the absolute basics!
               </Text>
@@ -80,7 +80,7 @@ export default function StepPath({
           <View style={styles.cardContent}>
             <PathIcon type="placement" />
             <View style={styles.cardTextContainer}>
-              <Text style={styles.pathTitle}>College</Text>
+              <Text style={styles.pathTitle}>युवा वर्ग</Text>
               <Text style={styles.pathSubtitle}>
                 Already know some Sanskrit?
               </Text>

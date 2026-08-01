@@ -5,7 +5,6 @@ import { COLORS } from "../../constants/theme";
 import ProgressBar from "../ui/ProgressBar";
 
 import StepWelcome from "./StepWelcome";
-import StepMotivation from "./StepMotivation";
 import StepGoal from "./StepGoal";
 import StepPath from "./StepPath";
 
@@ -24,13 +23,13 @@ export default function OnboardingContainer({ onComplete }: OnboardingContainerP
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<OnboardingData>({
     language: "sanskrit", // Default language to Sanskrit
-    motivation: "",
+    motivation: "brain", // Default to brain training
     dailyGoal: 10, // default 10 minutes
     pathSelection: "",
   });
 
   const nextStep = () => {
-    if (currentStep === 3) {
+    if (currentStep === 2) {
       onComplete(data);
     } else {
       setCurrentStep((prev) => prev + 1);
@@ -54,21 +53,13 @@ export default function OnboardingContainer({ onComplete }: OnboardingContainerP
         return <StepWelcome onNext={nextStep} />;
       case 1:
         return (
-          <StepMotivation
-            selectedMotivation={data.motivation}
-            onSelectMotivation={(id) => updateData("motivation", id)}
-            onNext={nextStep}
-          />
-        );
-      case 2:
-        return (
           <StepGoal
             selectedGoal={data.dailyGoal}
             onSelectGoal={(minutes) => updateData("dailyGoal", minutes)}
             onNext={nextStep}
           />
         );
-      case 3:
+      case 2:
         return (
           <StepPath
             selectedPath={data.pathSelection}
@@ -85,7 +76,7 @@ export default function OnboardingContainer({ onComplete }: OnboardingContainerP
     <SafeAreaView style={styles.container}>
       {currentStep > 0 && (
         <ProgressBar
-          progress={currentStep / 3}
+          progress={currentStep / 2}
           onBack={prevStep}
         />
       )}

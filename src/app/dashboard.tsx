@@ -16,22 +16,11 @@ const LANGUAGE_NAMES: Record<string, string> = {
   kr: "Korean",
 };
 
-const MOTIVATION_LABELS: Record<string, string> = {
-  brain: "Brain Training",
-  career: "Career & Work",
-  travel: "Travel Plans",
-  school: "School & Education",
-  family: "Family & Friends",
-};
-
 export default function Dashboard() {
   const params = useLocalSearchParams();
   const languageCode = (params.language as string) || "es";
-  const motivationId = (params.motivation as string) || "brain";
   const dailyGoal = parseInt((params.dailyGoal as string) || "10", 10);
   const pathSelection = (params.pathSelection as string) || "beginner";
-
-  const motivationLabel = MOTIVATION_LABELS[motivationId] || "Brain Training";
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -55,11 +44,6 @@ export default function Dashboard() {
             <View style={styles.row}>
               <Text style={styles.label}>Language:</Text>
               <Text style={styles.value}>Sanskrit</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.row}>
-              <Text style={styles.label}>Focus Area:</Text>
-              <Text style={styles.value}>{motivationLabel}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.row}>
