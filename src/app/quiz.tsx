@@ -396,7 +396,7 @@ export default function QuizScreen() {
     await completeLevel(levelId, finalScore);
 
     // Reward XP & Coins (Bonus rewards for 100% perfect score!)
-    const coinsReward = finalScore === 100 ? 10 : 5;
+    const coinsReward = finalScore === 100 ? 100 : 50;
     const expReward = finalScore === 100 ? 20 : 10;
 
     await addCoins(coinsReward);
@@ -419,7 +419,7 @@ export default function QuizScreen() {
         <CelebrationScreen
           score={100}
           expGained={20}
-          coinsGained={10}
+          coinsGained={100}
           onContinue={handleFinishQuiz}
         />
       );
@@ -458,7 +458,7 @@ export default function QuizScreen() {
 
             <View style={styles.rewardCard}>
               <Text style={styles.rewardIcon}>🪙</Text>
-              <Text style={styles.rewardValue}>+5 सिक्के</Text>
+              <Text style={styles.rewardValue}>+50 सिक्के</Text>
               <Text style={styles.rewardLabel}>स्वर्ण सिक्के</Text>
             </View>
           </View>
