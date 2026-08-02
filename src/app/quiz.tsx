@@ -680,9 +680,9 @@ export default function QuizScreen() {
                     onPress={() => {
                       setSelectedWordIndices((prev) => prev.filter((_, i) => i !== idx));
                     }}
-                    style={styles.wordBadgeSelected}
+                    style={[styles.wordBadge, styles.wordBadgeSelected]}
                   >
-                    <Text style={styles.wordBadgeTextSelected}>{jumbledWords[wordIdx]}</Text>
+                    <Text style={[styles.wordBadgeText, styles.wordBadgeTextSelected]}>{jumbledWords[wordIdx]}</Text>
                   </Pressable>
                 ))
               )}
@@ -696,9 +696,15 @@ export default function QuizScreen() {
                 return (
                   <Pressable
                     key={idx}
-                    onPress={() => !isUsed && setSelectedWordIndices((prev) => [...prev, idx])}
+                    onPress={() => {
+                      if (isUsed) {
+                        setSelectedWordIndices((prev) => prev.filter((i) => i !== idx));
+                      } else {
+                        setSelectedWordIndices((prev) => [...prev, idx]);
+                      }
+                    }}
                     style={[styles.wordBadge, isUsed && styles.wordBadgeDisabled]}
-                    disabled={isUsed || isChecked}
+                    disabled={isChecked}
                   >
                     <Text style={[styles.wordBadgeText, isUsed && styles.wordBadgeTextDisabled]}>
                       {word}
@@ -715,9 +721,9 @@ export default function QuizScreen() {
           <View style={styles.wordBankContainer}>
             <Text style={styles.instructionSmall}>निर्देश: अक्षरों पर टैप करके सही शब्द बनाएं</Text>
             {/* Top target ordered slot */}
-            <View style={styles.wordOrderTarget}>
+            <View style={styles.letterOrderTarget}>
               {selectedLetterIndices.length === 0 ? (
-                <Text style={styles.wordOrderPlaceholder}>अक्षरों को सही क्रम में लगाएं</Text>
+                <Text style={styles.letterOrderPlaceholder}>अक्षरों को सही क्रम में लगाएं</Text>
               ) : (
                 selectedLetterIndices.map((letterIdx, idx) => (
                   <Pressable
@@ -726,9 +732,11 @@ export default function QuizScreen() {
                     onPress={() => {
                       setSelectedLetterIndices((prev) => prev.filter((_, i) => i !== idx));
                     }}
-                    style={styles.wordBadgeSelected}
+                    style={[styles.letterTile, styles.letterTileSelected]}
                   >
-                    <Text style={styles.wordBadgeTextSelected}>{jumbledLetters[letterIdx]}</Text>
+                    <Text style={[styles.letterTileText, styles.letterTileTextSelected]}>
+                      {jumbledLetters[letterIdx]}
+                    </Text>
                   </Pressable>
                 ))
               )}
@@ -742,11 +750,17 @@ export default function QuizScreen() {
                 return (
                   <Pressable
                     key={idx}
-                    onPress={() => !isUsed && setSelectedLetterIndices((prev) => [...prev, idx])}
-                    style={[styles.wordBadge, isUsed && styles.wordBadgeDisabled]}
-                    disabled={isUsed || isChecked}
+                    onPress={() => {
+                      if (isUsed) {
+                        setSelectedLetterIndices((prev) => prev.filter((i) => i !== idx));
+                      } else {
+                        setSelectedLetterIndices((prev) => [...prev, idx]);
+                      }
+                    }}
+                    style={[styles.letterTile, isUsed && styles.letterTileDisabled]}
+                    disabled={isChecked}
                   >
-                    <Text style={[styles.wordBadgeText, isUsed && styles.wordBadgeTextDisabled]}>
+                    <Text style={[styles.letterTileText, isUsed && styles.letterTileTextDisabled]}>
                       {letter}
                     </Text>
                   </Pressable>
@@ -1239,6 +1253,62 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textMuted,
     fontStyle: "italic",
+  },
+  letterOrderTarget: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    minHeight: 70,
+    backgroundColor: "#f5f9fc",
+    borderWidth: 2,
+    borderColor: COLORS.backgroundDark,
+    borderRadius: RADII.md,
+    padding: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  letterTile: {
+    width: 48,
+    height: 48,
+    backgroundColor: COLORS.white,
+    borderWidth: 2.5,
+    borderColor: COLORS.border,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.borderDark,
+    borderRadius: RADII.md,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  letterTileSelected: {
+    borderColor: COLORS.accent,
+    borderBottomColor: COLORS.accentDark,
+    backgroundColor: COLORS.white,
+  },
+  letterTileDisabled: {
+    backgroundColor: COLORS.whiteDark,
+    borderColor: COLORS.whiteDark,
+    borderBottomWidth: 2,
+    opacity: 0.4,
+  },
+  letterTileText: {
+    ...TYPOGRAPHY.display,
+    fontSize: 18,
+    color: COLORS.text,
+    textAlign: "center",
+  },
+  letterTileTextSelected: {
+    color: COLORS.accentDark,
+  },
+  letterTileTextDisabled: {
+    color: COLORS.textMuted,
+  },
+  letterOrderPlaceholder: {
+    ...TYPOGRAPHY.bodyRegular,
+    fontSize: 14,
+    color: COLORS.textMuted,
+    fontStyle: "italic",
+    textAlign: "center",
   },
   wordBankGrid: {
     flexDirection: "row",
