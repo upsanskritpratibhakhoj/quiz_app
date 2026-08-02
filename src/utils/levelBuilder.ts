@@ -20,6 +20,7 @@ export const TYPE_ORDER = [
   "Match_Following",
   "Anvaya_Practice",
   "Sentence_Builder",
+  "Word_Builder",
   "Word_Connect",
   "Vocabulary_Breakdown"
 ];
@@ -56,14 +57,19 @@ export const TYPE_META: Record<string, { title: string; desc: string; icon: stri
     icon: "🤝",
   },
   Anvaya_Practice: {
-    title: "अनुवाद अभ्यास (Anvaya)",
-    desc: "शब्दों को गद्य क्रम में व्यवस्थित करें।",
+    title: "अन्वय अभ्यास (Anvaya)",
+    desc: "सही उत्तर या विकल्पों का चयन करें।",
     icon: "📖",
   },
   Sentence_Builder: {
     title: "वाक्य निर्माण (Sentence Builder)",
     desc: "शब्दों को उचित क्रम में लगाकर वाक्य बनाएं।",
     icon: "🧱",
+  },
+  Word_Builder: {
+    title: "शब्द निर्माण (Word Builder)",
+    desc: "अक्षरों को सही क्रम में लगाकर शब्द बनाएं।",
+    icon: "🧩",
   },
   Word_Connect: {
     title: "शब्द संधान (Word Connect)",

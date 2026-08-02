@@ -51,25 +51,33 @@ export default function QuizScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Interaction States based on quiz type
-  // 1. Single Select (MCQ, Fill_Blank, Sentence_Correction, True_False)
+  // 1. Single/Multi Select and Option Shuffling
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-
-  // 2. Multi Select (Multi_Select, Vocabulary_Breakdown)
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
+  const [shuffledOptions, setShuffledOptions] = useState<any[]>([]);
 
-  // 3. Grid Word Select (Word_Connect, Sentence_Builder)
-  const [gridSelectedWords, setGridSelectedWords] = useState<Set<string>>(new Set());
+  // 2. Sentence Builder (Word Bank)
+  const [jumbledWords, setJumbledWords] = useState<string[]>([]);
+  const [selectedWordIndices, setSelectedWordIndices] = useState<number[]>([]);
 
-  // 4. Word Bank Reordering (Anvaya_Practice)
-  const [orderedWords, setOrderedWords] = useState<string[]>([]);
+  // 3. Word Builder (Letter Bank)
+  const [jumbledLetters, setJumbledLetters] = useState<string[]>([]);
+  const [selectedLetterIndices, setSelectedLetterIndices] = useState<number[]>([]);
 
-  // 5. Match Following
+  // 4. Match Following
   const [matchLeftWords, setMatchLeftWords] = useState<string[]>([]);
   const [matchRightWords, setMatchRightWords] = useState<string[]>([]);
-  const [matchMap, setMatchMap] = useState<Record<string, string>>({}); // left -> right
-  const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
-  const [selectedRight, setSelectedRight] = useState<string | null>(null);
-  const [matchedLeftSet, setMatchedLeftSet] = useState<Set<string>>(new Set());
+  const [correctIndexPairs, setCorrectIndexPairs] = useState<Array<{ leftIndex: number; rightIndex: number }>>([]);
+  const [matchedPairs, setMatchedPairs] = useState<Array<{ leftIndex: number; rightIndex: number }>>([]);
+  const [selectedLeft, setSelectedLeft] = useState<number | null>(null);
+  const [selectedRight, setSelectedRight] = useState<number | null>(null);
+  
+  // Layout measurements for Match Following drawing lines
+  const parentRef = React.useRef<View>(null);
+  const leftRefs = React.useRef<Record<number, View>>({});
+  const rightRefs = React.useRef<Record<number, View>>({});
+  const [leftLayouts, setLeftLayouts] = useState<Record<number, { x: number; y: number; width: number; height: number }>>({});
+  const [rightLayouts, setRightLayouts] = useState<Record<number, { x: number; y: number; width: number; height: number }>>({});
 
   // Checking & Validation States
   const [isChecked, setIsChecked] = useState(false);
@@ -113,69 +121,106 @@ export default function QuizScreen() {
     // Reset interaction states
     setSelectedOption(null);
     setMultiSelected(new Set());
-    setGridSelectedWords(new Set());
-    setOrderedWords([]);
+    setShuffledOptions([]);
+    setJumbledWords([]);
+    setSelectedWordIndices([]);
+    setJumbledLetters([]);
+    setSelectedLetterIndices([]);
+    setMatchLeftWords([]);
+    setMatchRightWords([]);
+    setCorrectIndexPairs([]);
+    setMatchedPairs([]);
     setSelectedLeft(null);
     setSelectedRight(null);
-    setMatchedLeftSet(new Set());
+    setLeftLayouts({});
+    setRightLayouts({});
 
     // Setup specific states
-    if (quizType === "Match_Following") {
+    // 1. Shuffled Options for choice-based questions
+    const opts = [
+      { key: "Option_A", text: currentQuestion.Option_A },
+      { key: "Option_B", text: currentQuestion.Option_B },
+      { key: "Option_C", text: currentQuestion.Option_C },
+      { key: "Option_D", text: currentQuestion.Option_D },
+    ].filter((opt) => opt.text !== null && opt.text !== undefined && opt.text !== "");
+    setShuffledOptions([...opts].sort(() => Math.random() - 0.5));
+
+    // 2. Word Builder Letter Bank
+    if (quizType === "Word_Builder" && currentQuestion.Option_A) {
+      const letters = currentQuestion.Option_A.split(",").map((l) => l.trim());
+      setJumbledLetters([...letters].sort(() => Math.random() - 0.5));
+    }
+
+    // 3. Sentence Builder Word Bank
+    if (quizType === "Sentence_Builder" && currentQuestion.Option_A) {
+      const words = currentQuestion.Option_A.split(",").map((w) => w.trim());
+      setJumbledWords([...words].sort(() => Math.random() - 0.5));
+    }
+
+    // 4. Match Following columns & pairs
+    if (quizType === "Match_Following" && currentQuestion.Option_A && currentQuestion.Option_B) {
       const left = currentQuestion.Option_A.split(",").map((w) => w.trim());
+      const right = currentQuestion.Option_B.split(",").map((w) => w.trim());
       setMatchLeftWords(left);
 
-      // Parse matches: "Option_A:सुहृत्; Option_B:इन्दुः; ..."
-      const mapping: Record<string, string> = {};
-      const rightWordsList: string[] = [];
+      // Shuffle right words
+      const shuffledRight = [...right].sort(() => Math.random() - 0.5);
+      setMatchRightWords(shuffledRight);
 
-      currentQuestion.Correct_Answer.split(";").forEach((pair) => {
-        const parts = pair.split(":");
-        if (parts.length === 2) {
-          const optKey = parts[0].trim();
-          const rWord = parts[1].trim();
+      // Parse correct connections
+      const correctConns = currentQuestion.Correct_Answer.split(",").map((pair) => {
+        const parts = pair.split("-");
+        return {
+          left: parts[0].trim(),
+          right: parts[1] ? parts[1].trim() : "",
+        };
+      });
 
-          let lWord = "";
-          if (optKey === "Option_A") lWord = left[0];
-          else if (optKey === "Option_B") lWord = left[1];
-          else if (optKey === "Option_C") lWord = left[2];
-          else if (optKey === "Option_D") lWord = left[3];
+      // Compute correct index pairs based on shuffledRight
+      const pairs: Array<{ leftIndex: number; rightIndex: number }> = [];
+      const assignedRight = new Set<number>();
 
-          if (lWord) {
-            mapping[lWord] = rWord;
-            rightWordsList.push(rWord);
-          }
+      left.forEach((lWord, i) => {
+        const possibleRightIndices = shuffledRight
+          .map((rWord, j) => ({ rWord, j }))
+          .filter(({ rWord }) => correctConns.some((c) => c.left === lWord && c.right === rWord));
+
+        const unassigned = possibleRightIndices.find(({ j }) => !assignedRight.has(j));
+        if (unassigned) {
+          assignedRight.add(unassigned.j);
+          pairs.push({ leftIndex: i, rightIndex: unassigned.j });
+        } else if (possibleRightIndices.length > 0) {
+          pairs.push({ leftIndex: i, rightIndex: possibleRightIndices[0].j });
         }
       });
 
-      setMatchMap(mapping);
-      // Shuffle right words
-      setMatchRightWords([...rightWordsList].sort(() => Math.random() - 0.5));
+      setCorrectIndexPairs(pairs);
     }
   }, [currentIndex, currentQuestion, quizType]);
 
   // Verify pair match instantly for Match_Following
   useEffect(() => {
-    if (quizType !== "Match_Following" || !selectedLeft || !selectedRight) return;
+    if (quizType !== "Match_Following" || selectedLeft === null || selectedRight === null) return;
 
-    const correctMatch = matchMap[selectedLeft] === selectedRight;
-    if (correctMatch) {
-      // Add to matched set
-      setMatchedLeftSet((prev) => {
-        const next = new Set(prev);
-        next.add(selectedLeft);
-        return next;
-      });
+    const isMatch = correctIndexPairs.some(
+      (p) => p.leftIndex === selectedLeft && p.rightIndex === selectedRight
+    );
+
+    if (isMatch) {
+      setMatchedPairs((prev) => [...prev, { leftIndex: selectedLeft, rightIndex: selectedRight }]);
       setSelectedLeft(null);
       setSelectedRight(null);
+      playSound("correct_answer");
     } else {
-      // Wrong pairing deducts heart instantly and resets selections
-      Alert.alert("गलत मिलान! ⚠️", `"${selectedLeft}" का मिलान "${selectedRight}" से नहीं है।`);
+      const leftText = matchLeftWords[selectedLeft];
+      const rightText = matchRightWords[selectedRight];
+      Alert.alert("गलत मिलान! ⚠️", `"${leftText}" का मिलान "${rightText}" से नहीं है।`);
       loseHeart();
       playSound("wrong_answer");
       setSelectedLeft(null);
       setSelectedRight(null);
     }
-  }, [selectedLeft, selectedRight, matchMap, quizType]);
+  }, [selectedLeft, selectedRight, correctIndexPairs, quizType]);
 
   if (questions.length === 0) {
     return (
@@ -205,28 +250,6 @@ export default function QuizScreen() {
     });
   };
 
-  // Handle grid word toggle
-  const handleToggleGridWord = (word: string) => {
-    if (isChecked) return;
-    setGridSelectedWords((prev) => {
-      const next = new Set(prev);
-      if (next.has(word)) next.delete(word);
-      else next.add(word);
-      return next;
-    });
-  };
-
-  // Handle word bank click
-  const handleWordBankPress = (word: string, isFromTop: boolean) => {
-    if (isChecked) return;
-    if (isFromTop) {
-      setOrderedWords((prev) => prev.filter((w) => w !== word));
-    } else {
-      if (!orderedWords.includes(word)) {
-        setOrderedWords((prev) => [...prev, word]);
-      }
-    }
-  };
 
   const checkDisabled = () => {
     if (isChecked) return false;
@@ -236,16 +259,21 @@ export default function QuizScreen() {
       case "Sentence_Correction":
       case "True_False":
         return !selectedOption;
+      case "Anvaya_Practice":
+        if (currentQuestion?.Correct_Answer.includes(",")) {
+          return multiSelected.size === 0;
+        } else {
+          return !selectedOption;
+        }
       case "Multi_Select":
       case "Vocabulary_Breakdown":
         return multiSelected.size === 0;
-      case "Word_Connect":
       case "Sentence_Builder":
-        return gridSelectedWords.size === 0;
-      case "Anvaya_Practice":
-        return orderedWords.length === 0;
+        return selectedWordIndices.length === 0;
+      case "Word_Builder":
+        return selectedLetterIndices.length === 0;
       case "Match_Following":
-        return matchedLeftSet.size < matchLeftWords.length;
+        return correctIndexPairs.length === 0 || matchedPairs.length < correctIndexPairs.length;
       default:
         return true;
     }
@@ -256,29 +284,54 @@ export default function QuizScreen() {
 
     let correct = false;
 
-    if (quizType === "MCQ" || quizType === "Fill_Blank" || quizType === "Sentence_Correction" || quizType === "True_False") {
+    if (
+      quizType === "MCQ" ||
+      quizType === "Fill_Blank" ||
+      quizType === "Sentence_Correction" ||
+      quizType === "True_False"
+    ) {
       correct = selectedOption === currentQuestion.Correct_Answer;
+    } else if (quizType === "Anvaya_Practice") {
+      if (currentQuestion.Correct_Answer.includes(",")) {
+        // Multi-select mode
+        const correctKeys = currentQuestion.Correct_Answer.split(",").map((k) => k.trim());
+        const selectedKeys = Array.from(multiSelected);
+        correct =
+          correctKeys.length === selectedKeys.length &&
+          correctKeys.every((k) => selectedKeys.includes(k));
+      } else {
+        // Single-select mode
+        correct = selectedOption === currentQuestion.Correct_Answer;
+      }
     } else if (quizType === "Multi_Select" || quizType === "Vocabulary_Breakdown") {
-      // Split correct answers (e.g. Option_A, Option_B)
       const correctKeys = currentQuestion.Correct_Answer.split(",").map((k) => k.trim());
       const selectedKeys = Array.from(multiSelected);
       correct =
         correctKeys.length === selectedKeys.length &&
         correctKeys.every((k) => selectedKeys.includes(k));
-    } else if (quizType === "Word_Connect" || quizType === "Sentence_Builder") {
-      // Correct answer e.g. "पङ्कजम्; पद्मम्; सरोजम्"
+    } else if (quizType === "Sentence_Builder") {
       const correctWords = currentQuestion.Correct_Answer.split(";").map((w) => w.trim());
-      const selectedWords = Array.from(gridSelectedWords);
+      const selectedWords = selectedWordIndices.map((idx) => jumbledWords[idx]);
+      
+      const countMap = (arr: string[]) => {
+        const map: Record<string, number> = {};
+        arr.forEach((w) => {
+          map[w] = (map[w] || 0) + 1;
+        });
+        return map;
+      };
+      
+      const correctCounts = countMap(correctWords);
+      const selectedCounts = countMap(selectedWords);
+      
       correct =
-        correctWords.length === selectedWords.length &&
-        correctWords.every((w) => selectedWords.includes(w));
-    } else if (quizType === "Anvaya_Practice") {
-      const correctWords = currentQuestion.Correct_Answer.split(";").map((w) => w.trim());
-      correct =
-        correctWords.length === orderedWords.length &&
-        correctWords.every((w, idx) => orderedWords[idx] === w);
+        Object.keys(correctCounts).length === Object.keys(selectedCounts).length &&
+        Object.keys(correctCounts).every((key) => correctCounts[key] === selectedCounts[key]);
+    } else if (quizType === "Word_Builder") {
+      const constructedWord = selectedLetterIndices.map((idx) => jumbledLetters[idx]).join("");
+      correct = constructedWord === currentQuestion.Correct_Answer;
     } else if (quizType === "Match_Following") {
-      correct = matchedLeftSet.size === matchLeftWords.length;
+      correct = matchedPairs.length === correctIndexPairs.length;
     }
 
     setIsCorrect(correct);
@@ -440,6 +493,45 @@ export default function QuizScreen() {
     mascotExpression = isCorrect ? "excited" : "guiding";
   }
 
+  const renderQuestionText = () => {
+    if (quizType === "Match_Following") {
+      return "शब्दों के सही जोड़ों का मिलान करें! (Match the correct pairs of words)";
+    }
+
+    if (quizType === "Fill_Blank") {
+      const questionStr = currentQuestion.Question;
+      const parts = questionStr.split(/\.{3,}/);
+      if (parts.length >= 2) {
+        const selectedOptObj = shuffledOptions.find((o) => o.key === selectedOption);
+        const selectedText = selectedOptObj ? selectedOptObj.text : "_____________";
+
+        return (
+          <Text style={styles.questionText}>
+            {parts[0]}
+            <Text
+              style={{
+                color: selectedOption
+                  ? isChecked
+                    ? isCorrect
+                      ? "#4b8a08"
+                      : COLORS.error
+                    : COLORS.accent
+                  : COLORS.textMuted,
+                fontWeight: "bold",
+                textDecorationLine: "underline",
+              }}
+            >
+              {` ${selectedText} `}
+            </Text>
+            {parts[1]}
+          </Text>
+        );
+      }
+    }
+
+    return <Text style={styles.questionText}>{currentQuestion.Question}</Text>;
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* Lesson Header */}
@@ -468,13 +560,7 @@ export default function QuizScreen() {
           <Mascot expression={mascotExpression} size={90} style={styles.mascot} />
           <View style={styles.bubble}>
             <View style={styles.bubbleArrow} />
-            <Text style={styles.questionText}>
-              {quizType === "Match_Following"
-                ? "शब्दों के सही जोड़ों का मिलान करें! (Match the correct pairs of words)"
-                : quizType === "Anvaya_Practice"
-                ? "शब्दों को सही गद्य क्रम में व्यवस्थित करें! (Arrange words in correct order)"
-                : currentQuestion.Question}
-            </Text>
+            {renderQuestionText()}
           </View>
         </View>
 
@@ -482,10 +568,12 @@ export default function QuizScreen() {
         {(quizType === "MCQ" ||
           quizType === "Fill_Blank" ||
           quizType === "Sentence_Correction" ||
-          quizType === "True_False") && (
+          quizType === "True_False" ||
+          (quizType === "Anvaya_Practice" && !currentQuestion.Correct_Answer.includes(","))) && (
           <View style={styles.optionsContainer}>
-            {options.map((opt) => {
+            {shuffledOptions.map((opt, index) => {
               const isOptSelected = selectedOption === opt.key;
+              const displayLabel = ["A", "B", "C", "D"][index] || opt.label;
               let cardVariant: "accent" | "primary" = "accent";
 
               if (isChecked && opt.key === currentQuestion.Correct_Answer) {
@@ -501,23 +589,23 @@ export default function QuizScreen() {
                   style={styles.optionCard}
                 >
                   <View style={styles.optionCardContent}>
-                    <View
-                      style={[
-                        styles.optionBadge,
-                        isOptSelected && styles.optionBadgeSelected,
-                        isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeCorrect,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.optionBadgeText,
-                          isOptSelected && styles.optionBadgeTextSelected,
-                          isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeTextCorrect,
-                        ]}
-                      >
-                        {opt.label}
-                      </Text>
-                    </View>
+                     <View
+                       style={[
+                         styles.optionBadge,
+                         isOptSelected && styles.optionBadgeSelected,
+                         isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeCorrect,
+                       ]}
+                     >
+                       <Text
+                         style={[
+                           styles.optionBadgeText,
+                           isOptSelected && styles.optionBadgeTextSelected,
+                           isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeTextCorrect,
+                         ]}
+                       >
+                         {displayLabel}
+                       </Text>
+                     </View>
                     <Text style={styles.optionText}>{opt.text}</Text>
                   </View>
                 </Card>
@@ -527,10 +615,13 @@ export default function QuizScreen() {
         )}
 
         {/* 2. Multi Select Render */}
-        {(quizType === "Multi_Select" || quizType === "Vocabulary_Breakdown") && (
+        {(quizType === "Multi_Select" ||
+          quizType === "Vocabulary_Breakdown" ||
+          (quizType === "Anvaya_Practice" && currentQuestion.Correct_Answer.includes(","))) && (
           <View style={styles.optionsContainer}>
-            {options.map((opt) => {
+            {shuffledOptions.map((opt, index) => {
               const isOptSelected = multiSelected.has(opt.key);
+              const displayLabel = ["A", "B", "C", "D"][index] || opt.label;
               const correctKeys = currentQuestion.Correct_Answer.split(",").map((k) => k.trim());
               const isCorrectKey = correctKeys.includes(opt.key);
 
@@ -558,11 +649,11 @@ export default function QuizScreen() {
                       <Text
                         style={[
                           styles.optionBadgeText,
-                          isOptSelected && styles.optionBadgeTextSelected,
-                          isChecked && isCorrectKey && styles.optionBadgeTextCorrect,
+                           isOptSelected && styles.optionBadgeTextSelected,
+                           isChecked && isCorrectKey && styles.optionBadgeTextCorrect,
                         ]}
                       >
-                        {isOptSelected ? "✓" : opt.label}
+                        {isOptSelected ? "✓" : displayLabel}
                       </Text>
                     </View>
                     <Text style={styles.optionText}>{opt.text}</Text>
@@ -573,35 +664,44 @@ export default function QuizScreen() {
           </View>
         )}
 
-        {/* 3. Grid Word Select Render */}
-        {(quizType === "Word_Connect" || quizType === "Sentence_Builder") && (
-          <View style={styles.wordGridContainer}>
-            <Text style={styles.instructionSmall}>निर्देश: सही शब्दों पर टैप करें</Text>
-            <View style={styles.wordGrid}>
-              {currentQuestion.Option_A.split(",").map((word) => {
-                const wClean = word.trim();
-                const isWordSelected = gridSelectedWords.has(wClean);
-                const correctWords = currentQuestion.Correct_Answer.split(";").map((w) => w.trim());
-                const isCorrectWord = correctWords.includes(wClean);
+        {/* 3. Sentence Builder Render */}
+        {quizType === "Sentence_Builder" && (
+          <View style={styles.wordBankContainer}>
+            <Text style={styles.instructionSmall}>निर्देश: शब्दों पर टैप करके वाक्य बनाएं</Text>
+            {/* Top target ordered slot */}
+            <View style={styles.wordOrderTarget}>
+              {selectedWordIndices.length === 0 ? (
+                <Text style={styles.wordOrderPlaceholder}>शब्दों को सही क्रम में लगाएं</Text>
+              ) : (
+                selectedWordIndices.map((wordIdx, idx) => (
+                  <Pressable
+                    key={`${wordIdx}_${idx}`}
+                    disabled={isChecked}
+                    onPress={() => {
+                      setSelectedWordIndices((prev) => prev.filter((_, i) => i !== idx));
+                    }}
+                    style={styles.wordBadgeSelected}
+                  >
+                    <Text style={styles.wordBadgeTextSelected}>{jumbledWords[wordIdx]}</Text>
+                  </Pressable>
+                ))
+              )}
+            </View>
 
-                let badgeStyle = styles.wordBadge;
-                if (isWordSelected) badgeStyle = { ...badgeStyle, ...styles.wordBadgeSelected };
-                if (isChecked && isCorrectWord) badgeStyle = { ...badgeStyle, ...styles.wordBadgeCorrect };
+            {/* Bottom word bank sources */}
+            <View style={styles.wordBankGrid}>
+              {jumbledWords.map((word, idx) => {
+                const isUsed = selectedWordIndices.includes(idx);
 
                 return (
                   <Pressable
-                    key={wClean}
-                    onPress={() => handleToggleGridWord(wClean)}
-                    style={badgeStyle}
+                    key={idx}
+                    onPress={() => !isUsed && setSelectedWordIndices((prev) => [...prev, idx])}
+                    style={[styles.wordBadge, isUsed && styles.wordBadgeDisabled]}
+                    disabled={isUsed || isChecked}
                   >
-                    <Text
-                      style={[
-                        styles.wordBadgeText,
-                        isWordSelected && styles.wordBadgeTextSelected,
-                        isChecked && isCorrectWord && styles.wordBadgeTextCorrect,
-                      ]}
-                    >
-                      {wClean}
+                    <Text style={[styles.wordBadgeText, isUsed && styles.wordBadgeTextDisabled]}>
+                      {word}
                     </Text>
                   </Pressable>
                 );
@@ -610,41 +710,44 @@ export default function QuizScreen() {
           </View>
         )}
 
-        {/* 4. Word Bank Reordering Render */}
-        {quizType === "Anvaya_Practice" && (
+        {/* 4. Word Builder Render */}
+        {quizType === "Word_Builder" && (
           <View style={styles.wordBankContainer}>
+            <Text style={styles.instructionSmall}>निर्देश: अक्षरों पर टैप करके सही शब्द बनाएं</Text>
             {/* Top target ordered slot */}
             <View style={styles.wordOrderTarget}>
-              {orderedWords.length === 0 ? (
-                <Text style={styles.wordOrderPlaceholder}>शब्दों पर टैप करके वाक्य बनाएं</Text>
+              {selectedLetterIndices.length === 0 ? (
+                <Text style={styles.wordOrderPlaceholder}>अक्षरों को सही क्रम में लगाएं</Text>
               ) : (
-                orderedWords.map((word) => (
+                selectedLetterIndices.map((letterIdx, idx) => (
                   <Pressable
-                    key={word}
-                    onPress={() => handleWordBankPress(word, true)}
+                    key={`${letterIdx}_${idx}`}
+                    disabled={isChecked}
+                    onPress={() => {
+                      setSelectedLetterIndices((prev) => prev.filter((_, i) => i !== idx));
+                    }}
                     style={styles.wordBadgeSelected}
                   >
-                    <Text style={styles.wordBadgeTextSelected}>{word}</Text>
+                    <Text style={styles.wordBadgeTextSelected}>{jumbledLetters[letterIdx]}</Text>
                   </Pressable>
                 ))
               )}
             </View>
 
-            {/* Bottom word bank sources */}
+            {/* Bottom letter bank sources */}
             <View style={styles.wordBankGrid}>
-              {currentQuestion.Option_A.split(",").map((word) => {
-                const wClean = word.trim();
-                const isUsed = orderedWords.includes(wClean);
+              {jumbledLetters.map((letter, idx) => {
+                const isUsed = selectedLetterIndices.includes(idx);
 
                 return (
                   <Pressable
-                    key={wClean}
-                    onPress={() => !isUsed && handleWordBankPress(wClean, false)}
+                    key={idx}
+                    onPress={() => !isUsed && setSelectedLetterIndices((prev) => [...prev, idx])}
                     style={[styles.wordBadge, isUsed && styles.wordBadgeDisabled]}
-                    disabled={isUsed}
+                    disabled={isUsed || isChecked}
                   >
                     <Text style={[styles.wordBadgeText, isUsed && styles.wordBadgeTextDisabled]}>
-                      {wClean}
+                      {letter}
                     </Text>
                   </Pressable>
                 );
@@ -655,19 +758,67 @@ export default function QuizScreen() {
 
         {/* 5. Match Following Columns Render */}
         {quizType === "Match_Following" && (
-          <View style={styles.matchContainer}>
+          <View ref={parentRef} style={styles.matchContainer}>
+            {/* Draw matched lines */}
+            {matchedPairs.map((pair, idx) => {
+              const leftLayout = leftLayouts[pair.leftIndex];
+              const rightLayout = rightLayouts[pair.rightIndex];
+              if (!leftLayout || !rightLayout) return null;
+
+              const x1 = leftLayout.x + leftLayout.width;
+              const y1 = leftLayout.y + leftLayout.height / 2;
+              const x2 = rightLayout.x;
+              const y2 = rightLayout.y + rightLayout.height / 2;
+
+              const dx = x2 - x1;
+              const dy = y2 - y1;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const angle = Math.atan2(dy, dx);
+
+              return (
+                <View
+                  key={idx}
+                  style={{
+                    position: "absolute",
+                    left: x1,
+                    top: y1 - 2,
+                    width: distance,
+                    height: 4,
+                    backgroundColor: COLORS.primary,
+                    transformOrigin: "left",
+                    transform: [{ rotate: `${angle}rad` }],
+                    borderRadius: 2,
+                    zIndex: 10,
+                  }}
+                  pointerEvents="none"
+                />
+              );
+            })}
+
             {/* Left words column */}
             <View style={styles.matchColumn}>
               <Text style={styles.columnHeader}>संस्कृत पद</Text>
-              {matchLeftWords.map((word) => {
-                const isMatched = matchedLeftSet.has(word);
-                const isSelected = selectedLeft === word;
+              {matchLeftWords.map((word, i) => {
+                const isMatched = matchedPairs.some((p) => p.leftIndex === i);
+                const isSelected = selectedLeft === i;
 
                 return (
                   <Pressable
-                    key={word}
+                    key={i}
+                    ref={(el) => {
+                      if (el) leftRefs.current[i] = el;
+                    }}
+                    onLayout={() => {
+                      leftRefs.current[i]?.measureLayout(
+                        parentRef.current as any,
+                        (x, y, w, h) => {
+                          setLeftLayouts((prev) => ({ ...prev, [i]: { x, y, width: w, height: h } }));
+                        },
+                        () => {}
+                      );
+                    }}
                     disabled={isMatched || isChecked}
-                    onPress={() => setSelectedLeft(word)}
+                    onPress={() => setSelectedLeft(isSelected ? null : i)}
                     style={[
                       styles.matchCard,
                       isSelected && styles.matchCardSelected,
@@ -691,18 +842,27 @@ export default function QuizScreen() {
             {/* Right words column */}
             <View style={styles.matchColumn}>
               <Text style={styles.columnHeader}>सही अर्थ / पर्याय</Text>
-              {matchRightWords.map((word) => {
-                // Find if this right word is matched to any left word
-                const isMatched = matchLeftWords.some(
-                  (lWord) => matchedLeftSet.has(lWord) && matchMap[lWord] === word
-                );
-                const isSelected = selectedRight === word;
+              {matchRightWords.map((word, j) => {
+                const isMatched = matchedPairs.some((p) => p.rightIndex === j);
+                const isSelected = selectedRight === j;
 
                 return (
                   <Pressable
-                    key={word}
+                    key={j}
+                    ref={(el) => {
+                      if (el) rightRefs.current[j] = el;
+                    }}
+                    onLayout={() => {
+                      rightRefs.current[j]?.measureLayout(
+                        parentRef.current as any,
+                        (x, y, w, h) => {
+                          setRightLayouts((prev) => ({ ...prev, [j]: { x, y, width: w, height: h } }));
+                        },
+                        () => {}
+                      );
+                    }}
                     disabled={isMatched || isChecked}
-                    onPress={() => setSelectedRight(word)}
+                    onPress={() => setSelectedRight(isSelected ? null : j)}
                     style={[
                       styles.matchCard,
                       isSelected && styles.matchCardSelected,
@@ -742,13 +902,19 @@ export default function QuizScreen() {
             {!isCorrect && quizType !== "Match_Following" && (
               <Text style={styles.correctAnswerLabel}>
                 सही उत्तर:{" "}
-                {quizType === "Multi_Select" || quizType === "Vocabulary_Breakdown"
+                {quizType === "Multi_Select" ||
+                quizType === "Vocabulary_Breakdown" ||
+                (quizType === "Anvaya_Practice" && currentQuestion.Correct_Answer.includes(","))
                   ? currentQuestion.Correct_Answer.split(",")
                       .map((key) => {
-                        const opt = options.find((o) => o.key === key.trim());
+                        const opt = shuffledOptions.find((o) => o.key === key.trim());
                         return opt ? opt.text : key;
                       })
                       .join(", ")
+                  : quizType === "Sentence_Builder"
+                  ? currentQuestion.Correct_Answer.split(";").join(" ")
+                  : quizType === "Word_Builder"
+                  ? currentQuestion.Correct_Answer
                   : currentQuestion.Correct_Answer.replace(/;/g, ", ")}
               </Text>
             )}
