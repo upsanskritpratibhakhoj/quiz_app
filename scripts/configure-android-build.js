@@ -87,3 +87,23 @@ ${customRulesMarker} to fix missing class errors
   console.error(`Warning: android/app/proguard-rules.pro not found at ${proguardPath}`);
 }
 
+// 5. Configure Gradle JVM Arguments in gradle.properties
+const propertiesPath = path.join(__dirname, '../android/gradle.properties');
+if (fs.existsSync(propertiesPath)) {
+  let propertiesContent = fs.readFileSync(propertiesPath, 'utf8');
+  if (/^[#\s]*org\.gradle\.jvmargs\s*=\s*/m.test(propertiesContent)) {
+    propertiesContent = propertiesContent.replace(
+      /^[#\s]*org\.gradle\.jvmargs\s*=\s*.*/gm,
+      'org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m'
+    );
+    console.log('- Updated org.gradle.jvmargs in gradle.properties to -Xmx4096m -XX:MaxMetaspaceSize=1024m');
+  } else {
+    propertiesContent += '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m\n';
+    console.log('- Appended org.gradle.jvmargs configuration to gradle.properties');
+  }
+  fs.writeFileSync(propertiesPath, propertiesContent, 'utf8');
+} else {
+  console.error(`Warning: android/gradle.properties not found at ${propertiesPath}`);
+}
+
+

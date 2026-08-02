@@ -41,7 +41,7 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease bundleRelease \
-            -Pandroid.injected.signing.store.file=release.keystore \
+            -Pandroid.injected.signing.store.file=${{ github.workspace }}/android/app/release.keystore \
             -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
             -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_ALIAS }}" \
             -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
