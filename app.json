@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "वाक्यशिल्पी",
+    "name": "Vakyashilpi",
     "slug": "vakyashilpi",
-    "version": "1.0.0",
+    "version": "",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "vakyashilpi",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/icon.png",
-      "bundleIdentifier": "com.sanskrit.vakyashilpi"
+      "bundleIdentifier": "com.sanskrit.vakyashilpi.app"
     },
     "android": {
-      "package": "com.sanskrit.vakyashilpi",
+      "package": "com.sanskrit.vakyashilpi.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#FEF2DD",
@@ -30,7 +30,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#FEF2DD",
-          "image": "./assets/images/splash_screen.png",
+          "image": "./assets/images/icon.png",
           "resizeMode": "cover"
         }
       ],
