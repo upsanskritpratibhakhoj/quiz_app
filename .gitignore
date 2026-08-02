@@ -43,3 +43,6 @@ example
 /android
 
 output
+
+keystore_base64.txt
+my-release-key.keystore

@@ -32,14 +32,28 @@ jobs:
       - name: Configure Android build options
         run: node scripts/configure-android-build.js
 
-      - name: Build Android App (Release APK)
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > android/app/release.keystore
+
+      - name: Build Android App (Release APK and AAB)
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease bundleRelease \
+            -Pandroid.injected.signing.store.file=release.keystore \
+            -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.ANDROID_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD }}"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
           path: android/app/build/outputs/apk/release/*.apk
+
+      - name: Upload AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: android/app/build/outputs/bundle/release/*.aab
