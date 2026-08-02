@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { StyleSheet, Text, View, ScrollView, Alert, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS, TYPOGRAPHY, SPACING, RADII } from "../constants/theme";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -31,11 +32,20 @@ export default function CategoriesScreen() {
     });
   };
 
+  const handleBack = async () => {
+    try {
+      await AsyncStorage.removeItem("pathSelection");
+    } catch (e) {
+      console.error("Failed to clear pathSelection:", e);
+    }
+    router.replace("/");
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <TopStatsBar
         title={isBeginner ? "बाल वर्ग (6-12)" : "युवा वर्ग (B.A.-M.A.)"}
-        onBack={() => router.back()}
+        onBack={handleBack}
       />
       <View style={styles.container}>
 

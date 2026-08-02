@@ -19,7 +19,7 @@ export default function StepWelcome({ onNext }: StepWelcomeProps) {
           <Text style={styles.title}>वाक्यशिल्पी </Text>
           
           <Text style={styles.subtitle}>
-            Learn a language for free.{"\n"}Forever.
+            (संस्कृत भाषा दक्षता){"\n"}पद से वाक्य तक, संस्कृत की सरल यात्रा।
           </Text>
         </View>
 

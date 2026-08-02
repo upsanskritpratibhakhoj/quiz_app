@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COLORS } from "../../constants/theme";
 import ProgressBar from "../ui/ProgressBar";
 
@@ -16,11 +17,12 @@ interface OnboardingData {
 }
 
 interface OnboardingContainerProps {
+  initialStep?: number;
   onComplete: (data: OnboardingData) => void;
 }
 
-export default function OnboardingContainer({ onComplete }: OnboardingContainerProps) {
-  const [currentStep, setCurrentStep] = useState(0);
+export default function OnboardingContainer({ initialStep = 0, onComplete }: OnboardingContainerProps) {
+  const [currentStep, setCurrentStep] = useState(initialStep);
   const [data, setData] = useState<OnboardingData>({
     language: "sanskrit", // Default language to Sanskrit
     motivation: "brain", // Default to brain training
@@ -28,7 +30,15 @@ export default function OnboardingContainer({ onComplete }: OnboardingContainerP
     pathSelection: "",
   });
 
-  const nextStep = () => {
+  const nextStep = async () => {
+    if (currentStep === 1) {
+      try {
+        await AsyncStorage.setItem("hasCompletedOnboarding", "true");
+      } catch (e) {
+        console.error("Failed to save onboarding progress:", e);
+      }
+    }
+
     if (currentStep === 2) {
       onComplete(data);
     } else {
@@ -77,7 +87,7 @@ export default function OnboardingContainer({ onComplete }: OnboardingContainerP
       {currentStep > 0 && (
         <ProgressBar
           progress={currentStep / 2}
-          onBack={prevStep}
+          onBack={currentStep > initialStep ? prevStep : undefined}
         />
       )}
       <View style={styles.stepContent}>{renderStepContent()}</View>
