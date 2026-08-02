@@ -1,20 +1,22 @@
 {
   "expo": {
-    "name": "quiz-app",
-    "slug": "quiz-app",
+    "name": "वाक्यशिल्पी",
+    "slug": "vakyashilpi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "quizapp",
+    "scheme": "vakyashilpi",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/icon.png"
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "com.sanskrit.vakyashilpi"
     },
     "android": {
-      "package": "com.anonymous.quizapp",
+      "package": "com.sanskrit.vakyashilpi",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#FEF2DD",
-        "foregroundImage": "./assets/images/android-icon-foreground.png"
+        "foregroundImage": "./assets/images/icon.png"
       },
       "predictiveBackGestureEnabled": false
     },
