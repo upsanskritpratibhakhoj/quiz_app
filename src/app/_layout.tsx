@@ -5,6 +5,8 @@ import { Stack } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GameProvider } from "../context/GameContext";
 
+import * as Updates from "expo-updates";
+
 // Prevent the native splash screen from auto-hiding before we're ready
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* Prevent crash on reload */
@@ -16,12 +18,20 @@ export default function RootLayout() {
   const [fadeAnim] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
-    // Wait for the app to be ready (e.g., 1.5 seconds to show the logo)
+    // Wait for the app to be ready and check for OTA updates
     const prepare = async () => {
       try {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        if (!__DEV__) {
+          const update = await Updates.checkForUpdateAsync();
+          if (update.isAvailable) {
+            await Updates.fetchUpdateAsync();
+            await Updates.reloadAsync();
+            return;
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1200));
       } catch (e) {
-        console.warn(e);
+        console.warn("OTA update check error:", e);
       } finally {
         setAppIsReady(true);
       }
