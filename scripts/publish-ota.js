@@ -3,9 +3,18 @@ const path = require("path");
 const crypto = require("crypto");
 
 const DIST_PATH = path.resolve(__dirname, "../dist");
-const SERVER_URL = process.env.OTA_SERVER_URL || "https://vakyashilpi-ota-server.workers.dev";
+const appJsonPath = path.resolve(__dirname, "../app.json");
+let defaultRuntimeVersion = "1.0.1";
+if (fs.existsSync(appJsonPath)) {
+  try {
+    const appJson = JSON.parse(fs.readFileSync(appJsonPath, "utf-8"));
+    defaultRuntimeVersion = appJson.expo?.runtimeVersion || defaultRuntimeVersion;
+  } catch (e) {}
+}
+
+const SERVER_URL = process.env.OTA_SERVER_URL || "https://vakyashilpi-ota-server.jayesh152005.workers.dev";
 const UPLOAD_SECRET = process.env.UPLOAD_SECRET || "vakyashilpi_secret_ota_key_2026";
-const RUNTIME_VERSION = process.env.RUNTIME_VERSION || "1.0.1";
+const RUNTIME_VERSION = process.env.RUNTIME_VERSION || defaultRuntimeVersion;
 
 async function main() {
   console.log("🚀 Starting automated OTA update publish process for Android...");

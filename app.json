@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "runtimeVersion": "1.0.1",
     "updates": {
-      "url": "https://vakyashilpi-ota-server.workers.dev/manifest",
+      "url": "https://vakyashilpi-ota-server.jayesh152005.workers.dev/manifest",
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
