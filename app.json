@@ -2,7 +2,7 @@
   "expo": {
     "name": "Vakyashilpi",
     "slug": "vakyashilpi",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "vakyashilpi",
@@ -10,11 +10,11 @@
     "ios": {
       "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.sanskrit.vakyashilpi.app",
-      "buildNumber": "1.0.1"
+      "buildNumber": "1.0.2"
     },
     "android": {
       "package": "com.sanskrit.vakyashilpi.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#FEF2DD",
         "foregroundImage": "./assets/images/icon.png"
