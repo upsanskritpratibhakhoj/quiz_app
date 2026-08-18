@@ -33,16 +33,10 @@ export default function TopStatsBar({ title, onBack, style }: TopStatsBarProps) 
 
       {/* Right section: Stats */}
       <View style={styles.statsContainer}>
-        {/* EXP Stat */}
-        <View style={styles.statItem}>
+        {/* EXP / Score Stat */}
+        <Pressable onPress={() => setShopVisible(true)} style={styles.statItem}>
           <Text style={[styles.statIcon, { color: COLORS.warning }]}>⚡</Text>
           <Text style={styles.statText}>{exp}</Text>
-        </View>
-
-        {/* Coins Stat */}
-        <Pressable onPress={() => setShopVisible(true)} style={styles.statItem}>
-          <Text style={styles.statIcon}>🪙</Text>
-          <Text style={styles.statText}>{coins}</Text>
         </Pressable>
 
         {/* Hearts Stat */}

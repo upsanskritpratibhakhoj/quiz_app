@@ -13,23 +13,23 @@ interface RefillModalProps {
 export default function RefillModal({ visible, onClose }: RefillModalProps) {
   const {
     hearts,
-    coins,
-    buyHeartWithCoins,
-    refillHeartsWithCoins,
+    exp,
+    buyHeartWithExp,
+    refillHeartsWithExp,
   } = useGame();
 
   const [loading, setLoading] = useState(false);
 
   const handleBuyOne = async () => {
     setLoading(true);
-    const result = await buyHeartWithCoins();
+    const result = await buyHeartWithExp();
     setLoading(false);
     Alert.alert(result.success ? "सफलता! 🎉" : "ओह! ⚠️", result.message);
   };
 
   const handleRefillAll = async () => {
     setLoading(true);
-    const result = await refillHeartsWithCoins();
+    const result = await refillHeartsWithExp();
     setLoading(false);
     Alert.alert(result.success ? "सफलता! 🎉" : "ओह! ⚠️", result.message);
   };
@@ -52,7 +52,7 @@ export default function RefillModal({ visible, onClose }: RefillModalProps) {
 
           <Text style={styles.title}>दिल की दुकान (Hearts Shop)</Text>
           <Text style={styles.subtitle}>
-            सिक्कों (Coins) का उपयोग करके अपने दिलों (Hearts) को रीफिल करें और सीखना जारी रखें!
+            स्कोर/EXP का उपयोग करके अपने दिलों (Hearts) को रीफिल करें और सीखना जारी रखें!
           </Text>
 
           {/* Current Stats */}
@@ -63,9 +63,9 @@ export default function RefillModal({ visible, onClose }: RefillModalProps) {
               <Text style={styles.statValue}>{hearts} / 5</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statIcon}>🪙</Text>
-              <Text style={styles.statLabel}>आपके सिक्के:</Text>
-              <Text style={styles.statValue}>{coins}</Text>
+              <Text style={styles.statIcon}>⚡</Text>
+              <Text style={styles.statLabel}>आपका स्कोर (EXP):</Text>
+              <Text style={styles.statValue}>{exp}</Text>
             </View>
           </View>
 
@@ -75,12 +75,12 @@ export default function RefillModal({ visible, onClose }: RefillModalProps) {
             <View style={styles.optionCard}>
               <View style={styles.optionInfo}>
                 <Text style={styles.optionTitle}>+1 दिल (Heart)</Text>
-                <Text style={styles.optionCost}>🪙 20 सिक्के</Text>
+                <Text style={styles.optionCost}>⚡ 20 EXP अंक</Text>
               </View>
               <Button
                 title="खरीदें"
                 variant="accent"
-                disabled={hearts >= 5 || coins < 20 || loading}
+                disabled={hearts >= 5 || loading}
                 onPress={handleBuyOne}
                 style={styles.optionButton}
               />
@@ -90,12 +90,12 @@ export default function RefillModal({ visible, onClose }: RefillModalProps) {
             <View style={styles.optionCard}>
               <View style={styles.optionInfo}>
                 <Text style={styles.optionTitle}>पूरा रीफिल (5 Hearts)</Text>
-                <Text style={styles.optionCost}>🪙 100 सिक्के</Text>
+                <Text style={styles.optionCost}>⚡ 100 EXP अंक</Text>
               </View>
               <Button
                 title="रीफिल"
                 variant="primary"
-                disabled={hearts >= 5 || coins < 100 || loading}
+                disabled={hearts >= 5 || loading}
                 onPress={handleRefillAll}
                 style={styles.optionButton}
               />

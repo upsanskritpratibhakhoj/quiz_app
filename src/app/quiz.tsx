@@ -33,12 +33,11 @@ export default function QuizScreen() {
 
   const {
     hearts,
-    coins,
+    exp,
     loseHeart,
-    addCoins,
     addExp,
-    buyHeartWithCoins,
-    refillHeartsWithCoins,
+    buyHeartWithExp,
+    refillHeartsWithExp,
     completeLevel,
   } = useGame();
 
@@ -369,7 +368,7 @@ export default function QuizScreen() {
 
   const handleBuyOneHeart = async () => {
     setShopLoading(true);
-    const result = await buyHeartWithCoins();
+    const result = await buyHeartWithExp();
     setShopLoading(false);
     if (result.success) {
       setOutOfHeartsModalVisible(false);
@@ -380,7 +379,7 @@ export default function QuizScreen() {
 
   const handleRefillAllHearts = async () => {
     setShopLoading(true);
-    const result = await refillHeartsWithCoins();
+    const result = await refillHeartsWithExp();
     setShopLoading(false);
     if (result.success) {
       setOutOfHeartsModalVisible(false);
@@ -395,11 +394,8 @@ export default function QuizScreen() {
     // Save level completion score
     await completeLevel(levelId, finalScore);
 
-    // Reward XP & Coins (Bonus rewards for 100% perfect score!)
-    const coinsReward = finalScore === 100 ? 100 : 50;
+    // Reward XP (Bonus rewards for 100% perfect score!)
     const expReward = finalScore === 100 ? 20 : 10;
-
-    await addCoins(coinsReward);
     await addExp(expReward);
 
     router.replace({
@@ -419,7 +415,6 @@ export default function QuizScreen() {
         <CelebrationScreen
           score={100}
           expGained={20}
-          coinsGained={100}
           onContinue={handleFinishQuiz}
         />
       );
@@ -452,14 +447,8 @@ export default function QuizScreen() {
 
             <View style={styles.rewardCard}>
               <Text style={styles.rewardIcon}>⚡</Text>
-              <Text style={styles.rewardValue}>+10 EXP</Text>
+              <Text style={styles.rewardValue}>+{finalScore === 100 ? 20 : 10} EXP</Text>
               <Text style={styles.rewardLabel}>अनुभव अंक</Text>
-            </View>
-
-            <View style={styles.rewardCard}>
-              <Text style={styles.rewardIcon}>🪙</Text>
-              <Text style={styles.rewardValue}>+50 सिक्के</Text>
-              <Text style={styles.rewardLabel}>स्वर्ण सिक्के</Text>
             </View>
           </View>
 
@@ -984,20 +973,20 @@ export default function QuizScreen() {
             </Text>
 
             <View style={styles.shopBalanceRow}>
-              <Text style={styles.balanceLabel}>आपके पास सिक्के (Coins) हैं:</Text>
-              <Text style={styles.balanceValue}>🪙 {coins}</Text>
+              <Text style={styles.balanceLabel}>आपका स्कोर (EXP):</Text>
+              <Text style={styles.balanceValue}>⚡ {exp}</Text>
             </View>
 
             <View style={styles.shopOptions}>
               <View style={styles.shopCard}>
                 <View style={styles.shopCardLeft}>
                   <Text style={styles.shopCardTitle}>+1 दिल (Heart)</Text>
-                  <Text style={styles.shopCardCost}>🪙 20 सिक्के</Text>
+                  <Text style={styles.shopCardCost}>⚡ 20 EXP अंक</Text>
                 </View>
                 <Button
                   title="खरीदें"
                   variant="accent"
-                  disabled={coins < 20 || shopLoading}
+                  disabled={shopLoading}
                   onPress={handleBuyOneHeart}
                   style={styles.shopCardBtn}
                 />
@@ -1006,12 +995,12 @@ export default function QuizScreen() {
               <View style={styles.shopCard}>
                 <View style={styles.shopCardLeft}>
                   <Text style={styles.shopCardTitle}>पूरा रीफिल (5 Hearts)</Text>
-                  <Text style={styles.shopCardCost}>🪙 100 सिक्के</Text>
+                  <Text style={styles.shopCardCost}>⚡ 100 EXP अंक</Text>
                 </View>
                 <Button
                   title="रीफिल"
                   variant="primary"
-                  disabled={coins < 100 || shopLoading}
+                  disabled={shopLoading}
                   onPress={handleRefillAllHearts}
                   style={styles.shopCardBtn}
                 />

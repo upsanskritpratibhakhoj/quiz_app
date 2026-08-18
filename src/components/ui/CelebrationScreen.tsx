@@ -470,15 +470,6 @@ export default function CelebrationScreen({
             <Text style={styles.cardValueText}>+{displayExp}</Text>
             <Text style={styles.cardLabelText}>EXP बोनस</Text>
           </View>
-
-          {/* Coins Card */}
-          <View style={[styles.statCard, styles.coinCardBorder]}>
-            <View style={[styles.cardBadgeHeader, { backgroundColor: "#fff5ea" }]}>
-              <Text style={styles.cardHeaderIcon}>🪙</Text>
-            </View>
-            <Text style={styles.cardValueText}>+{displayCoins}</Text>
-            <Text style={styles.cardLabelText}>सिक्के</Text>
-          </View>
         </Animated.View>
 
         {/* Interactive Touch Sparkles Overlay */}
