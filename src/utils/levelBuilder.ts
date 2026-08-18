@@ -112,11 +112,57 @@ export function chunkQuestions(questions: any[]): any[][] {
 }
 
 /**
+ * Resolves question data for a given category name by handling suffix mismatches
+ * (e.g. "वर्णमाला ज्ञान" -> "वर्णमाला", "शब्दकोश अभ्यास" -> "शब्दकोश") and merging keys if necessary.
+ */
+export function getCategoryData(classGroup: string, category: string): Record<string, any[]> {
+  const groupData = (questionsRegistry as any)[classGroup] || {};
+  if (groupData[category]) {
+    return groupData[category];
+  }
+
+  // Normalize category name by stripping display suffixes like " ज्ञान", " अभ्यास", "-युक्त वाक्य", etc.
+  const cleanName = category
+    .trim()
+    .replace(/\s+(ज्ञान|अभ्यास)$/, "")
+    .replace(/-युक्त\s+वाक्य(\s+अभ्यास)?$/, "")
+    .trim();
+
+  if (groupData[cleanName]) {
+    return groupData[cleanName];
+  }
+
+  // Merge matching keys (e.g., "वाक्य निर्माण-1", "वाक्य निर्माण-2" for "व्याकरण ज्ञान" or "वाक्य निर्माण")
+  const merged: Record<string, any[]> = {};
+  let found = false;
+
+  Object.keys(groupData).forEach((key) => {
+    const keyMatches =
+      key === cleanName ||
+      key.startsWith(cleanName) ||
+      (cleanName === "व्याकरण" && key.startsWith("वाक्य निर्माण"));
+
+    if (keyMatches) {
+      found = true;
+      const catObj = groupData[key];
+      Object.keys(catObj).forEach((type) => {
+        if (!merged[type]) {
+          merged[type] = [];
+        }
+        merged[type].push(...catObj[type]);
+      });
+    }
+  });
+
+  return found ? merged : {};
+}
+
+/**
  * Build levels for a given category and path
  */
 export function buildLevelsForCategory(category: string, pathSelection: string): Level[] {
   const classGroup = pathSelection === "beginner" ? "बाल वर्ग" : "युवा वर्ग";
-  const categoryData = (questionsRegistry as any)[classGroup]?.[category] || {};
+  const categoryData = getCategoryData(classGroup, category);
 
   const levels: Level[] = [];
 
