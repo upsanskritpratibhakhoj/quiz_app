@@ -113,6 +113,35 @@ export default function QuizScreen() {
   const totalQuestions = questions.length;
   const quizType = currentLevel?.type || "MCQ";
 
+  const isGridMultiSelect = Boolean(
+    currentQuestion &&
+      (!currentQuestion.Option_B || currentQuestion.Option_B.trim() === "") &&
+      currentQuestion.Option_A &&
+      currentQuestion.Option_A.includes(",") &&
+      quizType !== "Sentence_Builder" &&
+      quizType !== "Word_Builder" &&
+      quizType !== "Match_Following"
+  );
+
+  const parseCorrectAnswers = (raw: string): string[] => {
+    if (!raw) return [];
+    return raw
+      .split(/[,;]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  };
+
+  const isMultiSelectQuestion = Boolean(
+    quizType === "Multi_Select" ||
+      quizType === "Vocabulary_Breakdown" ||
+      isGridMultiSelect ||
+      (quizType === "Anvaya_Practice" &&
+        Boolean(
+          currentQuestion?.Correct_Answer &&
+            (currentQuestion.Correct_Answer.includes(",") || currentQuestion.Correct_Answer.includes(";"))
+        ))
+  );
+
   // Initialize helper states when question index changes
   useEffect(() => {
     if (!currentQuestion) return;
@@ -136,13 +165,27 @@ export default function QuizScreen() {
 
     // Setup specific states
     // 1. Shuffled Options for choice-based questions
-    const opts = [
-      { key: "Option_A", text: currentQuestion.Option_A },
-      { key: "Option_B", text: currentQuestion.Option_B },
-      { key: "Option_C", text: currentQuestion.Option_C },
-      { key: "Option_D", text: currentQuestion.Option_D },
-    ].filter((opt) => opt.text !== null && opt.text !== undefined && opt.text !== "");
-    setShuffledOptions([...opts].sort(() => Math.random() - 0.5));
+    if (isGridMultiSelect) {
+      const items = (currentQuestion.Option_A || "")
+        .split(",")
+        .map((w) => w.trim())
+        .filter((w) => w.length > 0);
+
+      const opts = items.map((w, idx) => ({
+        key: w,
+        text: w,
+        label: String.fromCharCode(65 + (idx % 26)),
+      }));
+      setShuffledOptions([...opts].sort(() => Math.random() - 0.5));
+    } else {
+      const opts = [
+        { key: "Option_A", text: currentQuestion.Option_A },
+        { key: "Option_B", text: currentQuestion.Option_B },
+        { key: "Option_C", text: currentQuestion.Option_C },
+        { key: "Option_D", text: currentQuestion.Option_D },
+      ].filter((opt) => opt.text !== null && opt.text !== undefined && opt.text !== "");
+      setShuffledOptions([...opts].sort(() => Math.random() - 0.5));
+    }
 
     // 2. Word Builder Letter Bank
     if (quizType === "Word_Builder" && currentQuestion.Option_A) {
@@ -249,24 +292,18 @@ export default function QuizScreen() {
     });
   };
 
-
   const checkDisabled = () => {
     if (isChecked) return false;
+    if (isMultiSelectQuestion) {
+      return multiSelected.size === 0;
+    }
     switch (quizType) {
       case "MCQ":
       case "Fill_Blank":
       case "Sentence_Correction":
       case "True_False":
-        return !selectedOption;
       case "Anvaya_Practice":
-        if (currentQuestion?.Correct_Answer.includes(",")) {
-          return multiSelected.size === 0;
-        } else {
-          return !selectedOption;
-        }
-      case "Multi_Select":
-      case "Vocabulary_Breakdown":
-        return multiSelected.size === 0;
+        return !selectedOption;
       case "Sentence_Builder":
         return selectedWordIndices.length === 0;
       case "Word_Builder":
@@ -283,31 +320,20 @@ export default function QuizScreen() {
 
     let correct = false;
 
-    if (
-      quizType === "MCQ" ||
-      quizType === "Fill_Blank" ||
-      quizType === "Sentence_Correction" ||
-      quizType === "True_False"
-    ) {
-      correct = selectedOption === currentQuestion.Correct_Answer;
-    } else if (quizType === "Anvaya_Practice") {
-      if (currentQuestion.Correct_Answer.includes(",")) {
-        // Multi-select mode
-        const correctKeys = currentQuestion.Correct_Answer.split(",").map((k) => k.trim());
-        const selectedKeys = Array.from(multiSelected);
-        correct =
-          correctKeys.length === selectedKeys.length &&
-          correctKeys.every((k) => selectedKeys.includes(k));
-      } else {
-        // Single-select mode
-        correct = selectedOption === currentQuestion.Correct_Answer;
-      }
-    } else if (quizType === "Multi_Select" || quizType === "Vocabulary_Breakdown") {
-      const correctKeys = currentQuestion.Correct_Answer.split(",").map((k) => k.trim());
+    if (isMultiSelectQuestion) {
+      const correctKeys = parseCorrectAnswers(currentQuestion.Correct_Answer);
       const selectedKeys = Array.from(multiSelected);
       correct =
         correctKeys.length === selectedKeys.length &&
         correctKeys.every((k) => selectedKeys.includes(k));
+    } else if (
+      quizType === "MCQ" ||
+      quizType === "Fill_Blank" ||
+      quizType === "Sentence_Correction" ||
+      quizType === "True_False" ||
+      quizType === "Anvaya_Practice"
+    ) {
+      correct = selectedOption === currentQuestion.Correct_Answer;
     } else if (quizType === "Sentence_Builder") {
       const correctWords = currentQuestion.Correct_Answer.split(";").map((w) => w.trim());
       const selectedWords = selectedWordIndices.map((idx) => jumbledWords[idx]);
@@ -553,105 +579,157 @@ export default function QuizScreen() {
           </View>
         </View>
 
-        {/* 1. Single Select Render */}
-        {(quizType === "MCQ" ||
-          quizType === "Fill_Blank" ||
-          quizType === "Sentence_Correction" ||
-          quizType === "True_False" ||
-          (quizType === "Anvaya_Practice" && !currentQuestion.Correct_Answer.includes(","))) && (
-          <View style={styles.optionsContainer}>
-            {shuffledOptions.map((opt, index) => {
-              const isOptSelected = selectedOption === opt.key;
-              const displayLabel = ["A", "B", "C", "D"][index] || opt.label;
-              let cardVariant: "accent" | "primary" = "accent";
+        {/* 1. Grid Multi-Select (Word / Choice Picker Grid) */}
+        {isGridMultiSelect && (
+          <View style={styles.wordGridContainer}>
+            <Text style={styles.instructionSmall}>
+              निर्देश: सही उत्तरों को चुनने के लिए उन पर टैप करें (Tap all correct options)
+            </Text>
+            <View style={styles.wordGrid}>
+              {shuffledOptions.map((opt) => {
+                const isOptSelected = multiSelected.has(opt.key);
+                const correctKeys = parseCorrectAnswers(currentQuestion.Correct_Answer);
+                const isCorrectKey = correctKeys.includes(opt.key);
 
-              if (isChecked && opt.key === currentQuestion.Correct_Answer) {
-                cardVariant = "primary";
-              }
+                let cardStyle: any = styles.wordBadge;
+                let textStyle: any = styles.wordBadgeText;
 
-              return (
-                <Card
-                  key={opt.key}
-                  selected={isOptSelected}
-                  variant={cardVariant}
-                  onPress={() => handleSelectOption(opt.key)}
-                  style={styles.optionCard}
-                >
-                  <View style={styles.optionCardContent}>
-                     <View
-                       style={[
-                         styles.optionBadge,
-                         isOptSelected && styles.optionBadgeSelected,
-                         isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeCorrect,
-                       ]}
-                     >
-                       <Text
-                         style={[
-                           styles.optionBadgeText,
-                           isOptSelected && styles.optionBadgeTextSelected,
-                           isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeTextCorrect,
-                         ]}
-                       >
-                         {displayLabel}
-                       </Text>
-                     </View>
-                    <Text style={styles.optionText}>{opt.text}</Text>
-                  </View>
-                </Card>
-              );
-            })}
+                if (isOptSelected) {
+                  cardStyle = [styles.wordBadge, styles.wordBadgeSelected];
+                  textStyle = [styles.wordBadgeText, styles.wordBadgeTextSelected];
+                }
+
+                if (isChecked) {
+                  if (isCorrectKey) {
+                    cardStyle = [styles.wordBadge, styles.wordBadgeCorrect];
+                    textStyle = [styles.wordBadgeText, styles.wordBadgeTextCorrect];
+                  } else if (isOptSelected && !isCorrectKey) {
+                    cardStyle = [styles.wordBadge, styles.wordBadgeIncorrect];
+                    textStyle = [styles.wordBadgeText, styles.wordBadgeTextIncorrect];
+                  }
+                }
+
+                return (
+                  <Pressable
+                    key={opt.key}
+                    disabled={isChecked}
+                    onPress={() => handleToggleMultiSelect(opt.key)}
+                    style={cardStyle}
+                  >
+                    <Text style={textStyle}>
+                      {isOptSelected ? "✓ " : ""}
+                      {opt.text}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         )}
 
-        {/* 2. Multi Select Render */}
-        {(quizType === "Multi_Select" ||
-          quizType === "Vocabulary_Breakdown" ||
-          (quizType === "Anvaya_Practice" && currentQuestion.Correct_Answer.includes(","))) && (
-          <View style={styles.optionsContainer}>
-            {shuffledOptions.map((opt, index) => {
-              const isOptSelected = multiSelected.has(opt.key);
-              const displayLabel = ["A", "B", "C", "D"][index] || opt.label;
-              const correctKeys = currentQuestion.Correct_Answer.split(",").map((k) => k.trim());
-              const isCorrectKey = correctKeys.includes(opt.key);
+        {/* 2. Standard Single Select Render */}
+        {!isMultiSelectQuestion &&
+          !isGridMultiSelect &&
+          (quizType === "MCQ" ||
+            quizType === "Fill_Blank" ||
+            quizType === "Sentence_Correction" ||
+            quizType === "True_False" ||
+            quizType === "Anvaya_Practice") && (
+            <View style={styles.optionsContainer}>
+              {shuffledOptions.map((opt, index) => {
+                const isOptSelected = selectedOption === opt.key;
+                const displayLabel = ["A", "B", "C", "D"][index] || opt.label;
+                let cardVariant: "accent" | "primary" = "accent";
 
-              let cardVariant: "accent" | "primary" = "accent";
-              if (isChecked && isCorrectKey) {
-                cardVariant = "primary";
-              }
+                if (isChecked && opt.key === currentQuestion.Correct_Answer) {
+                  cardVariant = "primary";
+                }
 
-              return (
-                <Card
-                  key={opt.key}
-                  selected={isOptSelected}
-                  variant={cardVariant}
-                  onPress={() => handleToggleMultiSelect(opt.key)}
-                  style={styles.optionCard}
-                >
-                  <View style={styles.optionCardContent}>
-                    <View
-                      style={[
-                        styles.optionBadge,
-                        isOptSelected && styles.optionBadgeSelected,
-                        isChecked && isCorrectKey && styles.optionBadgeCorrect,
-                      ]}
-                    >
-                      <Text
+                return (
+                  <Card
+                    key={opt.key}
+                    selected={isOptSelected}
+                    variant={cardVariant}
+                    onPress={() => handleSelectOption(opt.key)}
+                    style={styles.optionCard}
+                  >
+                    <View style={styles.optionCardContent}>
+                      <View
                         style={[
-                          styles.optionBadgeText,
-                           isOptSelected && styles.optionBadgeTextSelected,
-                           isChecked && isCorrectKey && styles.optionBadgeTextCorrect,
+                          styles.optionBadge,
+                          isOptSelected && styles.optionBadgeSelected,
+                          isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeCorrect,
                         ]}
                       >
-                        {isOptSelected ? "✓" : displayLabel}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.optionBadgeText,
+                            isOptSelected && styles.optionBadgeTextSelected,
+                            isChecked && opt.key === currentQuestion.Correct_Answer && styles.optionBadgeTextCorrect,
+                          ]}
+                        >
+                          {displayLabel}
+                        </Text>
+                      </View>
+                      <Text style={styles.optionText}>{opt.text}</Text>
                     </View>
-                    <Text style={styles.optionText}>{opt.text}</Text>
-                  </View>
-                </Card>
-              );
-            })}
-          </View>
-        )}
+                  </Card>
+                );
+              })}
+            </View>
+          )}
+
+        {/* 3. Standard Multi Select Render */}
+        {isMultiSelectQuestion &&
+          !isGridMultiSelect &&
+          (quizType === "Multi_Select" ||
+            quizType === "Vocabulary_Breakdown" ||
+            quizType === "Anvaya_Practice") && (
+            <View style={styles.optionsContainer}>
+              {shuffledOptions.map((opt, index) => {
+                const isOptSelected = multiSelected.has(opt.key);
+                const displayLabel = ["A", "B", "C", "D"][index] || opt.label;
+                const correctKeys = parseCorrectAnswers(currentQuestion.Correct_Answer);
+                const isCorrectKey = correctKeys.includes(opt.key);
+
+                let cardVariant: "accent" | "primary" = "accent";
+                if (isChecked && isCorrectKey) {
+                  cardVariant = "primary";
+                }
+
+                return (
+                  <Card
+                    key={opt.key}
+                    selected={isOptSelected}
+                    variant={cardVariant}
+                    onPress={() => handleToggleMultiSelect(opt.key)}
+                    style={styles.optionCard}
+                  >
+                    <View style={styles.optionCardContent}>
+                      <View
+                        style={[
+                          styles.optionBadge,
+                          isOptSelected && styles.optionBadgeSelected,
+                          isChecked && isCorrectKey && styles.optionBadgeCorrect,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.optionBadgeText,
+                            isOptSelected && styles.optionBadgeTextSelected,
+                            isChecked && isCorrectKey && styles.optionBadgeTextCorrect,
+                          ]}
+                        >
+                          {isOptSelected ? "✓" : displayLabel}
+                        </Text>
+                      </View>
+                      <Text style={styles.optionText}>{opt.text}</Text>
+                    </View>
+                  </Card>
+                );
+              })}
+            </View>
+          )}
 
         {/* 3. Sentence Builder Render */}
         {quizType === "Sentence_Builder" && (
@@ -905,10 +983,8 @@ export default function QuizScreen() {
             {!isCorrect && quizType !== "Match_Following" && (
               <Text style={styles.correctAnswerLabel}>
                 सही उत्तर:{" "}
-                {quizType === "Multi_Select" ||
-                quizType === "Vocabulary_Breakdown" ||
-                (quizType === "Anvaya_Practice" && currentQuestion.Correct_Answer.includes(","))
-                  ? currentQuestion.Correct_Answer.split(",")
+                {isMultiSelectQuestion
+                  ? parseCorrectAnswers(currentQuestion.Correct_Answer)
                       .map((key) => {
                         const opt = shuffledOptions.find((o) => o.key === key.trim());
                         return opt ? opt.text : key;
@@ -1199,6 +1275,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
     borderBottomColor: COLORS.primaryDark,
   },
+  wordBadgeIncorrect: {
+    backgroundColor: "#ffdbdb",
+    borderColor: COLORS.error,
+    borderBottomColor: COLORS.errorDark,
+  },
   wordBadgeDisabled: {
     backgroundColor: COLORS.whiteDark,
     borderColor: COLORS.whiteDark,
@@ -1219,6 +1300,11 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.body,
     fontSize: 15,
     color: COLORS.primaryDark,
+  },
+  wordBadgeTextIncorrect: {
+    ...TYPOGRAPHY.body,
+    fontSize: 15,
+    color: COLORS.errorDark,
   },
   wordBadgeTextDisabled: {
     color: COLORS.textMuted,
