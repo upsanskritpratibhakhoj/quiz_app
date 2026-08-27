@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { StyleSheet, Text, View, Pressable, ViewStyle } from "react-native";
+import { router } from "expo-router";
 import { useGame } from "../../context/GameContext";
 import { COLORS, TYPOGRAPHY, RADII } from "../../constants/theme";
 import RefillModal from "./RefillModal";
@@ -11,7 +12,7 @@ interface TopStatsBarProps {
 }
 
 export default function TopStatsBar({ title, onBack, style }: TopStatsBarProps) {
-  const { exp, coins, hearts } = useGame();
+  const { exp, hearts, bookmarks } = useGame();
   const [shopVisible, setShopVisible] = useState(false);
 
   return (
@@ -33,6 +34,15 @@ export default function TopStatsBar({ title, onBack, style }: TopStatsBarProps) 
 
       {/* Right section: Stats */}
       <View style={styles.statsContainer}>
+        {/* Bookmarks Stat / Nav */}
+        <Pressable
+          onPress={() => router.push("/bookmarks")}
+          style={[styles.statItem, bookmarks.length > 0 && styles.statItemActive]}
+        >
+          <Text style={[styles.statIcon, { color: COLORS.accent }]}>🔖</Text>
+          <Text style={styles.statText}>{bookmarks.length}</Text>
+        </Pressable>
+
         {/* EXP / Score Stat */}
         <Pressable onPress={() => setShopVisible(true)} style={styles.statItem}>
           <Text style={[styles.statIcon, { color: COLORS.warning }]}>⚡</Text>
@@ -51,6 +61,7 @@ export default function TopStatsBar({ title, onBack, style }: TopStatsBarProps) 
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -103,6 +114,10 @@ const styles = StyleSheet.create({
     minWidth: 56,
     justifyContent: "center",
   },
+  statItemActive: {
+    borderColor: COLORS.accent,
+    backgroundColor: "#f0f9ff",
+  },
   statIcon: {
     fontSize: 15,
     marginRight: 4,
@@ -113,3 +128,4 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
 });
+

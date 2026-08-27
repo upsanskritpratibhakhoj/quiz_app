@@ -1,6 +1,23 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export interface BookmarkedQuestion {
+  id: string; // e.g. category_levelId_index or generated hash
+  category: string;
+  quizType: string;
+  levelTitle?: string;
+  pathSelection?: string;
+  Question: string;
+  Option_A: string;
+  Option_B: string | null;
+  Option_C: string | null;
+  Option_D: string | null;
+  Correct_Answer: string;
+  Explanation?: string;
+  Vocabulary_Breakdown?: string;
+  createdAt: number;
+}
+
 interface GameContextType {
   hearts: number;
   exp: number;
@@ -8,12 +25,16 @@ interface GameContextType {
   isLoading: boolean;
   isDevMode: boolean;
   completedLevels: Record<string, { completed: boolean; score: number }>;
+  bookmarks: BookmarkedQuestion[];
   loseHeart: () => Promise<boolean>;
   addHearts: (amount: number) => Promise<void>;
   addExp: (amount: number) => Promise<void>;
   deductExp: (amount: number) => Promise<void>;
   buyHeartWithExp: () => Promise<{ success: boolean; message: string }>;
   refillHeartsWithExp: () => Promise<{ success: boolean; message: string }>;
+  toggleBookmark: (item: Omit<BookmarkedQuestion, "createdAt">) => Promise<boolean>;
+  removeBookmark: (id: string) => Promise<void>;
+  isBookmarked: (id: string) => boolean;
   // Compatibility aliases
   addCoins: (amount: number) => Promise<void>;
   deductCoins: (amount: number) => Promise<boolean>;
@@ -31,6 +52,7 @@ const HEARTS_KEY = "@quiz-app:hearts";
 const EXP_KEY = "@quiz-app:exp";
 const COMPLETED_LEVELS_KEY = "@quiz-app:completed_levels";
 const DEV_MODE_KEY = "@quiz-app:is_dev_mode";
+const BOOKMARKS_KEY = "@quiz-app:bookmarks";
 
 const MAX_HEARTS = 5;
 const SINGLE_HEART_COST = 20; // 20 EXP
@@ -40,6 +62,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hearts, setHeartsState] = useState<number>(MAX_HEARTS);
   const [exp, setExpState] = useState<number>(0);
   const [completedLevels, setCompletedLevelsState] = useState<Record<string, { completed: boolean; score: number }>>({});
+  const [bookmarks, setBookmarksState] = useState<BookmarkedQuestion[]>([]);
   const [isDevMode, setIsDevModeState] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -51,11 +74,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const storedExp = await AsyncStorage.getItem(EXP_KEY);
         const storedCompleted = await AsyncStorage.getItem(COMPLETED_LEVELS_KEY);
         const storedDevMode = await AsyncStorage.getItem(DEV_MODE_KEY);
+        const storedBookmarks = await AsyncStorage.getItem(BOOKMARKS_KEY);
 
         if (storedHearts !== null) setHeartsState(parseInt(storedHearts, 10));
         if (storedExp !== null) setExpState(parseInt(storedExp, 10));
         if (storedCompleted !== null) setCompletedLevelsState(JSON.parse(storedCompleted));
         if (storedDevMode !== null) setIsDevModeState(storedDevMode === "true");
+        if (storedBookmarks !== null) setBookmarksState(JSON.parse(storedBookmarks));
       } catch (error) {
         console.error("Error loading game stats from AsyncStorage:", error);
       } finally {
@@ -79,6 +104,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await AsyncStorage.setItem(EXP_KEY, val.toString());
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const saveBookmarks = async (list: BookmarkedQuestion[]) => {
+    try {
+      await AsyncStorage.setItem(BOOKMARKS_KEY, JSON.stringify(list));
+    } catch (e) {
+      console.error("Error saving bookmarks:", e);
     }
   };
 
@@ -168,14 +201,42 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const isBookmarked = (id: string): boolean => {
+    return bookmarks.some((b) => b.id === id);
+  };
+
+  const removeBookmark = async (id: string) => {
+    const next = bookmarks.filter((b) => b.id !== id);
+    setBookmarksState(next);
+    await saveBookmarks(next);
+  };
+
+  const toggleBookmark = async (item: Omit<BookmarkedQuestion, "createdAt">): Promise<boolean> => {
+    const exists = bookmarks.some((b) => b.id === item.id);
+    let next: BookmarkedQuestion[];
+    let added = false;
+    if (exists) {
+      next = bookmarks.filter((b) => b.id !== item.id);
+      added = false;
+    } else {
+      next = [{ ...item, createdAt: Date.now() }, ...bookmarks];
+      added = true;
+    }
+    setBookmarksState(next);
+    await saveBookmarks(next);
+    return added;
+  };
+
   const resetStats = async () => {
     setHeartsState(MAX_HEARTS);
     setExpState(0);
     setCompletedLevelsState({});
+    setBookmarksState([]);
     await Promise.all([
       AsyncStorage.setItem(HEARTS_KEY, MAX_HEARTS.toString()),
       AsyncStorage.setItem(EXP_KEY, "0"),
       AsyncStorage.setItem(COMPLETED_LEVELS_KEY, JSON.stringify({})),
+      AsyncStorage.setItem(BOOKMARKS_KEY, JSON.stringify([])),
     ]);
   };
 
@@ -188,12 +249,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         isDevMode,
         completedLevels,
+        bookmarks,
         loseHeart,
         addHearts,
         addExp,
         deductExp,
         buyHeartWithExp,
         refillHeartsWithExp,
+        toggleBookmark,
+        removeBookmark,
+        isBookmarked,
         // Aliases
         addCoins: addExp,
         deductCoins: async (amount: number) => {
@@ -220,4 +285,5 @@ export const useGame = () => {
   }
   return context;
 };
+
 

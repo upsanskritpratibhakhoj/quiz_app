@@ -40,6 +40,8 @@ export default function QuizScreen() {
     buyHeartWithExp,
     refillHeartsWithExp,
     completeLevel,
+    toggleBookmark,
+    isBookmarked,
   } = useGame();
 
   // Load questions for the specific level
@@ -533,6 +535,28 @@ export default function QuizScreen() {
     mascotExpression = isCorrect ? "excited" : "guiding";
   }
 
+  const currentQuestionId = `${category}_${levelId}_${currentIndex}_${currentQuestion?.Question?.slice(0, 25) || ""}`;
+  const isCurrentBookmarked = isBookmarked(currentQuestionId);
+
+  const handleToggleBookmark = async () => {
+    if (!currentQuestion) return;
+    await toggleBookmark({
+      id: currentQuestionId,
+      category,
+      quizType,
+      levelTitle: currentLevel?.title || `स्तर ${levelIndexStr}`,
+      pathSelection,
+      Question: currentQuestion.Question,
+      Option_A: currentQuestion.Option_A,
+      Option_B: currentQuestion.Option_B,
+      Option_C: currentQuestion.Option_C,
+      Option_D: currentQuestion.Option_D,
+      Correct_Answer: currentQuestion.Correct_Answer,
+      Explanation: currentQuestion.Explanation,
+      Vocabulary_Breakdown: currentQuestion.Vocabulary_Breakdown,
+    });
+  };
+
   const renderQuestionText = () => {
     if (quizType === "Match_Following") {
       return (
@@ -556,11 +580,11 @@ export default function QuizScreen() {
               style={{
                 color: selectedOption
                   ? isChecked
-                    ? isCorrect
-                      ? "#4b8a08"
-                      : COLORS.error
-                    : COLORS.accent
-                  : COLORS.textMuted,
+                  ? isCorrect
+                    ? "#4b8a08"
+                    : COLORS.error
+                  : COLORS.accent
+                : COLORS.textMuted,
                 fontWeight: "bold",
                 textDecorationLine: "underline",
               }}
@@ -604,7 +628,24 @@ export default function QuizScreen() {
           <Mascot expression={mascotExpression} size={90} style={styles.mascot} />
           <View style={styles.bubble}>
             <View style={styles.bubbleArrow} />
-            {renderQuestionText()}
+            <View style={styles.bubbleHeader}>
+              <View style={{ flex: 1 }}>
+                {renderQuestionText()}
+              </View>
+              <Pressable
+                onPress={handleToggleBookmark}
+                style={[
+                  styles.bookmarkButton,
+                  isCurrentBookmarked && styles.bookmarkButtonActive,
+                ]}
+                accessibilityLabel={isCurrentBookmarked ? "बुकमार्क हटाएं" : "बुकमार्क करें"}
+                hitSlop={8}
+              >
+                <Text style={[styles.bookmarkIcon, isCurrentBookmarked && styles.bookmarkIconActive]}>
+                  {isCurrentBookmarked ? "🔖" : "📑"}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -1159,6 +1200,34 @@ const styles = StyleSheet.create({
     borderColor: COLORS.backgroundDark,
     padding: 14,
     position: "relative",
+  },
+  bubbleHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  bookmarkButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.whiteDark,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 6,
+  },
+  bookmarkButtonActive: {
+    backgroundColor: "#fef3c7",
+    borderColor: "#f59e0b",
+  },
+  bookmarkIcon: {
+    fontSize: 14,
+    opacity: 0.6,
+  },
+  bookmarkIconActive: {
+    opacity: 1,
   },
   bubbleArrow: {
     position: "absolute",
