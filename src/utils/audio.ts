@@ -1,5 +1,4 @@
-import { Platform } from "react-native";
-import { requireOptionalNativeModule } from "expo-modules-core";
+import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 
 type SoundType = "correct_answer" | "wrong_answer" | "level_over";
 
@@ -9,48 +8,80 @@ const sounds: Record<SoundType, any> = {
   level_over: require("../../assets/audio/level_over.wav"),
 };
 
-let expoAudioLib: any = null;
-let isAudioLoadingFailed = false;
+let isAudioModeConfigured = false;
+const playerCache: Partial<Record<SoundType, any>> = {};
 
-// Bypasses check on Web. On native platforms, check if ExpoAudio module exists.
-const hasExpoAudio = Platform.OS === "web" || (
-  typeof requireOptionalNativeModule === "function" && 
-  !!requireOptionalNativeModule("ExpoAudio")
-);
-
-async function getExpoAudio() {
-  if (expoAudioLib) return expoAudioLib;
-  if (isAudioLoadingFailed || !hasExpoAudio) return null;
+async function configureAudio() {
+  if (isAudioModeConfigured) return;
   try {
-    const lib = await import("expo-audio");
-    expoAudioLib = lib;
-    return expoAudioLib;
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: false,
+      interruptionMode: "mixWithOthers",
+    });
+    isAudioModeConfigured = true;
+  } catch {
+    // Ignore if not supported on current platform
+  }
+}
+
+function getOrCreatePlayer(type: SoundType) {
+  if (playerCache[type]) {
+    return playerCache[type];
+  }
+  const source = sounds[type];
+  if (!source) return null;
+
+  try {
+    const player = createAudioPlayer(source, {
+      keepAudioSessionActive: true,
+    });
+    playerCache[type] = player;
+    return player;
   } catch (error) {
-    isAudioLoadingFailed = true;
-    console.warn("expo-audio failed to load. Audio feedback will be disabled.", error);
+    console.warn(`Failed to create audio player for ${type}:`, error);
     return null;
   }
 }
 
 export async function playSound(type: SoundType) {
   try {
-    const audioLib = await getExpoAudio();
-    if (!audioLib) {
-      console.warn(`Audio playback disabled. Cannot play sound: ${type}`);
-      return;
-    }
-    const player = audioLib.createAudioPlayer(sounds[type]);
-    const subscription = player.addListener("playbackStatusUpdate", (status: any) => {
-      if (status.didJustFinish) {
-        subscription.remove();
-        player.remove();
+    await configureAudio();
+    let player = getOrCreatePlayer(type);
+    if (!player) return;
+
+    try {
+      if (player.playing) {
+        player.pause();
       }
-    });
-    player.play();
+      await player.seekTo(0);
+      player.play();
+    } catch {
+      // If cached player got into an invalid state, recreate it once
+      try {
+        if (playerCache[type]) {
+          try {
+            playerCache[type].remove();
+          } catch {
+            // ignore
+          }
+          delete playerCache[type];
+        }
+        player = getOrCreatePlayer(type);
+        if (player) {
+          await player.seekTo(0);
+          player.play();
+        }
+      } catch (retryError) {
+        console.warn(`Retry failed for sound: ${type}`, retryError);
+      }
+    }
   } catch (error) {
-    console.error(`Failed to play sound: ${type}`, error);
+    console.warn(`Failed to play sound: ${type}`, error);
   }
 }
+
+
 
 
 

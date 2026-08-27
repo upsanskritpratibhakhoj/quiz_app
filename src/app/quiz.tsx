@@ -71,13 +71,7 @@ export default function QuizScreen() {
   const [matchedPairs, setMatchedPairs] = useState<Array<{ leftIndex: number; rightIndex: number }>>([]);
   const [selectedLeft, setSelectedLeft] = useState<number | null>(null);
   const [selectedRight, setSelectedRight] = useState<number | null>(null);
-  
-  // Layout measurements for Match Following drawing lines
-  const parentRef = React.useRef<View>(null);
-  const leftRefs = React.useRef<Record<number, View>>({});
-  const rightRefs = React.useRef<Record<number, View>>({});
-  const [leftLayouts, setLeftLayouts] = useState<Record<number, { x: number; y: number; width: number; height: number }>>({});
-  const [rightLayouts, setRightLayouts] = useState<Record<number, { x: number; y: number; width: number; height: number }>>({});
+  const [errorPair, setErrorPair] = useState<{ leftIndex: number; rightIndex: number } | null>(null);
 
   // Checking & Validation States
   const [isChecked, setIsChecked] = useState(false);
@@ -160,8 +154,7 @@ export default function QuizScreen() {
     setMatchedPairs([]);
     setSelectedLeft(null);
     setSelectedRight(null);
-    setLeftLayouts({});
-    setRightLayouts({});
+    setErrorPair(null);
 
     // Setup specific states
     // 1. Shuffled Options for choice-based questions
@@ -257,15 +250,27 @@ export default function QuizScreen() {
       setMatchedPairs((prev) => [...prev, { leftIndex: selectedLeft, rightIndex: selectedRight }]);
       setSelectedLeft(null);
       setSelectedRight(null);
+      setErrorPair(null);
       playSound("correct_answer");
     } else {
-      const leftText = matchLeftWords[selectedLeft];
-      const rightText = matchRightWords[selectedRight];
-      Alert.alert("गलत मिलान! ⚠️", `"${leftText}" का मिलान "${rightText}" से नहीं है।`);
+      const leftIdx = selectedLeft;
+      const rightIdx = selectedRight;
+      setErrorPair({ leftIndex: leftIdx, rightIndex: rightIdx });
       loseHeart();
       playSound("wrong_answer");
-      setSelectedLeft(null);
-      setSelectedRight(null);
+
+      const timer = setTimeout(() => {
+        setErrorPair((current) => {
+          if (current && current.leftIndex === leftIdx && current.rightIndex === rightIdx) {
+            return null;
+          }
+          return current;
+        });
+        setSelectedLeft((current) => (current === leftIdx ? null : current));
+        setSelectedRight((current) => (current === rightIdx ? null : current));
+      }, 650);
+
+      return () => clearTimeout(timer);
     }
   }, [selectedLeft, selectedRight, correctIndexPairs, quizType]);
 
@@ -850,71 +855,25 @@ export default function QuizScreen() {
 
         {/* 5. Match Following Columns Render */}
         {quizType === "Match_Following" && (
-          <View ref={parentRef} style={styles.matchContainer}>
-            {/* Draw matched lines */}
-            {matchedPairs.map((pair, idx) => {
-              const leftLayout = leftLayouts[pair.leftIndex];
-              const rightLayout = rightLayouts[pair.rightIndex];
-              if (!leftLayout || !rightLayout) return null;
-
-              const x1 = leftLayout.x + leftLayout.width;
-              const y1 = leftLayout.y + leftLayout.height / 2;
-              const x2 = rightLayout.x;
-              const y2 = rightLayout.y + rightLayout.height / 2;
-
-              const dx = x2 - x1;
-              const dy = y2 - y1;
-              const distance = Math.sqrt(dx * dx + dy * dy);
-              const angle = Math.atan2(dy, dx);
-
-              return (
-                <View
-                  key={idx}
-                  style={{
-                    position: "absolute",
-                    left: x1,
-                    top: y1 - 2,
-                    width: distance,
-                    height: 4,
-                    backgroundColor: COLORS.primary,
-                    transformOrigin: "left",
-                    transform: [{ rotate: `${angle}rad` }],
-                    borderRadius: 2,
-                    zIndex: 10,
-                  }}
-                  pointerEvents="none"
-                />
-              );
-            })}
-
+          <View style={styles.matchContainer}>
             {/* Left words column */}
             <View style={styles.matchColumn}>
               <Text style={styles.columnHeader}>संस्कृत पद</Text>
               {matchLeftWords.map((word, i) => {
                 const isMatched = matchedPairs.some((p) => p.leftIndex === i);
                 const isSelected = selectedLeft === i;
+                const isError = errorPair?.leftIndex === i;
 
                 return (
                   <Pressable
                     key={i}
-                    ref={(el) => {
-                      if (el) leftRefs.current[i] = el;
-                    }}
-                    onLayout={() => {
-                      leftRefs.current[i]?.measureLayout(
-                        parentRef.current as any,
-                        (x, y, w, h) => {
-                          setLeftLayouts((prev) => ({ ...prev, [i]: { x, y, width: w, height: h } }));
-                        },
-                        () => {}
-                      );
-                    }}
-                    disabled={isMatched || isChecked}
+                    disabled={isMatched || isChecked || errorPair !== null}
                     onPress={() => setSelectedLeft(isSelected ? null : i)}
                     style={[
                       styles.matchCard,
                       isSelected && styles.matchCardSelected,
                       isMatched && styles.matchCardMatched,
+                      isError && styles.matchCardWrong,
                     ]}
                   >
                     <Text
@@ -922,10 +881,16 @@ export default function QuizScreen() {
                         styles.matchCardText,
                         isSelected && styles.matchCardTextSelected,
                         isMatched && styles.matchCardTextMatched,
+                        isError && styles.matchCardTextWrong,
                       ]}
                     >
-                      {word} {isMatched && "✅"}
+                      {word}
                     </Text>
+                    {isMatched && (
+                      <View style={styles.matchCheckBadge}>
+                        <Text style={styles.matchCheckBadgeText}>✓</Text>
+                      </View>
+                    )}
                   </Pressable>
                 );
               })}
@@ -937,28 +902,18 @@ export default function QuizScreen() {
               {matchRightWords.map((word, j) => {
                 const isMatched = matchedPairs.some((p) => p.rightIndex === j);
                 const isSelected = selectedRight === j;
+                const isError = errorPair?.rightIndex === j;
 
                 return (
                   <Pressable
                     key={j}
-                    ref={(el) => {
-                      if (el) rightRefs.current[j] = el;
-                    }}
-                    onLayout={() => {
-                      rightRefs.current[j]?.measureLayout(
-                        parentRef.current as any,
-                        (x, y, w, h) => {
-                          setRightLayouts((prev) => ({ ...prev, [j]: { x, y, width: w, height: h } }));
-                        },
-                        () => {}
-                      );
-                    }}
-                    disabled={isMatched || isChecked}
+                    disabled={isMatched || isChecked || errorPair !== null}
                     onPress={() => setSelectedRight(isSelected ? null : j)}
                     style={[
                       styles.matchCard,
                       isSelected && styles.matchCardSelected,
                       isMatched && styles.matchCardMatched,
+                      isError && styles.matchCardWrong,
                     ]}
                   >
                     <Text
@@ -966,10 +921,16 @@ export default function QuizScreen() {
                         styles.matchCardText,
                         isSelected && styles.matchCardTextSelected,
                         isMatched && styles.matchCardTextMatched,
+                        isError && styles.matchCardTextWrong,
                       ]}
                     >
-                      {word} {isMatched && "✅"}
+                      {word}
                     </Text>
+                    {isMatched && (
+                      <View style={styles.matchCheckBadge}>
+                        <Text style={styles.matchCheckBadgeText}>✓</Text>
+                      </View>
+                    )}
                   </Pressable>
                 );
               })}
@@ -1403,19 +1364,21 @@ const styles = StyleSheet.create({
   },
   matchContainer: {
     flexDirection: "row",
-    gap: 15,
+    gap: 12,
     marginTop: 10,
+    width: "100%",
   },
   matchColumn: {
     flex: 1,
     gap: 10,
   },
   columnHeader: {
-    ...TYPOGRAPHY.body,
+    ...TYPOGRAPHY.heading,
     fontSize: 13,
     color: COLORS.textMuted,
     textAlign: "center",
-    marginBottom: 5,
+    marginBottom: 4,
+    fontWeight: "700",
   },
   matchCard: {
     backgroundColor: COLORS.white,
@@ -1428,30 +1391,63 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 50,
+    minHeight: 56,
+    position: "relative",
   },
   matchCardSelected: {
     borderColor: COLORS.accent,
     borderBottomColor: COLORS.accentDark,
-    backgroundColor: COLORS.background,
+    backgroundColor: "#e7f6ff",
   },
   matchCardMatched: {
     borderColor: COLORS.primary,
     borderBottomColor: COLORS.primaryDark,
     backgroundColor: "#e8ffd1",
-    opacity: 0.8,
+    opacity: 0.75,
+  },
+  matchCardWrong: {
+    borderColor: COLORS.error,
+    borderBottomColor: COLORS.errorDark,
+    backgroundColor: "#ffebec",
   },
   matchCardText: {
     ...TYPOGRAPHY.body,
     fontSize: 14,
+    lineHeight: 20,
     color: COLORS.text,
     textAlign: "center",
   },
   matchCardTextSelected: {
     color: COLORS.accentDark,
+    fontWeight: "700",
   },
   matchCardTextMatched: {
     color: COLORS.primaryDark,
+    fontWeight: "700",
+  },
+  matchCardTextWrong: {
+    color: COLORS.errorDark,
+    fontWeight: "700",
+  },
+  matchCheckBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: COLORS.primary,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: COLORS.white,
+    zIndex: 5,
+  },
+  matchCheckBadgeText: {
+    color: COLORS.white,
+    fontSize: 11,
+    fontWeight: "bold",
+    lineHeight: 12,
   },
   footer: {
     position: "absolute",
