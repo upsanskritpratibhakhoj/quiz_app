@@ -21,8 +21,6 @@ export const TYPE_ORDER = [
   "Anvaya_Practice",
   "Sentence_Builder",
   "Word_Builder",
-  "Word_Connect",
-  "Vocabulary_Breakdown"
 ];
 
 export const TYPE_META: Record<string, { title: string; desc: string; icon: string }> = {
@@ -70,16 +68,6 @@ export const TYPE_META: Record<string, { title: string; desc: string; icon: stri
     title: "शब्द निर्माण (Word Builder)",
     desc: "अक्षरों को सही क्रम में लगाकर शब्द बनाएं।",
     icon: "🧩",
-  },
-  Word_Connect: {
-    title: "शब्द संधान (Word Connect)",
-    desc: "सही अर्थों/शब्दों का संयोग करें।",
-    icon: "🔗",
-  },
-  Vocabulary_Breakdown: {
-    title: "शब्दावली विश्लेषण (Vocabulary)",
-    desc: "शब्दों के विच्छेद और अर्थ को समझें।",
-    icon: "🧐",
   },
 };
 

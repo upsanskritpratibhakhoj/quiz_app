@@ -133,7 +133,6 @@ export default function QuizScreen() {
 
   const isMultiSelectQuestion = Boolean(
     quizType === "Multi_Select" ||
-      quizType === "Vocabulary_Breakdown" ||
       isGridMultiSelect ||
       (quizType === "Anvaya_Practice" &&
         Boolean(
@@ -211,11 +210,16 @@ export default function QuizScreen() {
 
       // Parse correct connections
       const correctConns = currentQuestion.Correct_Answer.split(",").map((pair) => {
-        const parts = pair.split("-");
-        return {
-          left: parts[0].trim(),
-          right: parts[1] ? parts[1].trim() : "",
-        };
+        const trimmed = pair.trim();
+        const matchingLeft = left.find((l) => trimmed.startsWith(l));
+        if (matchingLeft) {
+          const rightPart = trimmed.slice(matchingLeft.length).replace(/^[\s\-:=]+/, "").trim();
+          return { left: matchingLeft, right: rightPart };
+        }
+        const hyphenIdx = trimmed.indexOf("-");
+        const l = hyphenIdx !== -1 ? trimmed.substring(0, hyphenIdx).trim() : trimmed;
+        const r = hyphenIdx !== -1 ? trimmed.substring(hyphenIdx + 1).trim() : "";
+        return { left: l, right: r };
       });
 
       // Compute correct index pairs based on shuffledRight
