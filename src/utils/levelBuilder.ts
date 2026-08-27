@@ -117,6 +117,7 @@ export function chunkQuestions(questions: any[]): any[][] {
  */
 export function getCategoryData(classGroup: string, category: string): Record<string, any[]> {
   const groupData = (questionsRegistry as any)[classGroup] || {};
+
   if (groupData[category]) {
     return groupData[category];
   }
