@@ -34,6 +34,7 @@ export default function QuizScreen() {
   const {
     hearts,
     exp,
+    isDevMode,
     loseHeart,
     addExp,
     buyHeartWithExp,
@@ -97,10 +98,10 @@ export default function QuizScreen() {
 
   // Watch for out of hearts
   useEffect(() => {
-    if (hearts === 0 && !quizFinished) {
+    if (!isDevMode && hearts === 0 && !quizFinished) {
       setOutOfHeartsModalVisible(true);
     }
-  }, [hearts]);
+  }, [hearts, isDevMode]);
 
   // Play level_over sound when level is finished
   useEffect(() => {
@@ -437,7 +438,7 @@ export default function QuizScreen() {
   // Render Lesson Complete / Celebration Screen
   if (quizFinished) {
     const finalScore = Math.round((correctCount / totalQuestions) * 100);
-    const isLevelPassed = finalScore >= 75;
+    const isLevelPassed = isDevMode ? true : finalScore >= 75;
 
     // Show high-energy Animated Celebration Screen for 100% perfection!
     if (finalScore === 100) {
@@ -464,7 +465,9 @@ export default function QuizScreen() {
           </Text>
           <Text style={styles.successSubtitle}>
             {isLevelPassed
-              ? `शानदार! आपने ${finalScore}% अंकों के साथ सफलतापूर्वक यह स्तर पूरा किया और अगला स्तर अनलॉक कर दिया!`
+              ? isDevMode && finalScore < 75
+                ? `शानदार! (God Mode एक्टिव: आपने ${finalScore}% अंक प्राप्त किए, और स्तर पूर्ण माना गया!)`
+                : `शानदार! आपने ${finalScore}% अंकों के साथ सफलतापूर्वक यह स्तर पूरा किया और अगला स्तर अनलॉक कर दिया!`
               : `आपने ${finalScore}% अंक प्राप्त किए। अगला स्तर अनलॉक करने के लिए कम से कम 75% अंक की आवश्यकता है। कृपया फिर से प्रयास करें!`}
           </Text>
 
@@ -514,7 +517,11 @@ export default function QuizScreen() {
 
   const renderQuestionText = () => {
     if (quizType === "Match_Following") {
-      return "शब्दों के सही जोड़ों का मिलान करें! (Match the correct pairs of words)";
+      return (
+        <Text style={styles.questionText}>
+          शब्दों के सही जोड़ों का मिलान करें! (Match the correct pairs of words)
+        </Text>
+      );
     }
 
     if (quizType === "Fill_Blank") {

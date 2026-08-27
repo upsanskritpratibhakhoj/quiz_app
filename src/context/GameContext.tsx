@@ -6,6 +6,7 @@ interface GameContextType {
   exp: number;
   coins: number; // Aliased to exp for backwards compatibility
   isLoading: boolean;
+  isDevMode: boolean;
   completedLevels: Record<string, { completed: boolean; score: number }>;
   loseHeart: () => Promise<boolean>;
   addHearts: (amount: number) => Promise<void>;
@@ -20,6 +21,8 @@ interface GameContextType {
   refillHeartsWithCoins: () => Promise<{ success: boolean; message: string }>;
   completeLevel: (levelId: string, score: number) => Promise<void>;
   resetStats: () => Promise<void>;
+  setDevMode: (enabled: boolean) => Promise<void>;
+  toggleDevMode: () => Promise<boolean>;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -27,6 +30,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 const HEARTS_KEY = "@quiz-app:hearts";
 const EXP_KEY = "@quiz-app:exp";
 const COMPLETED_LEVELS_KEY = "@quiz-app:completed_levels";
+const DEV_MODE_KEY = "@quiz-app:is_dev_mode";
 
 const MAX_HEARTS = 5;
 const SINGLE_HEART_COST = 20; // 20 EXP
@@ -36,6 +40,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hearts, setHeartsState] = useState<number>(MAX_HEARTS);
   const [exp, setExpState] = useState<number>(0);
   const [completedLevels, setCompletedLevelsState] = useState<Record<string, { completed: boolean; score: number }>>({});
+  const [isDevMode, setIsDevModeState] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Load stats from AsyncStorage on mount
@@ -45,10 +50,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const storedHearts = await AsyncStorage.getItem(HEARTS_KEY);
         const storedExp = await AsyncStorage.getItem(EXP_KEY);
         const storedCompleted = await AsyncStorage.getItem(COMPLETED_LEVELS_KEY);
+        const storedDevMode = await AsyncStorage.getItem(DEV_MODE_KEY);
 
         if (storedHearts !== null) setHeartsState(parseInt(storedHearts, 10));
         if (storedExp !== null) setExpState(parseInt(storedExp, 10));
         if (storedCompleted !== null) setCompletedLevelsState(JSON.parse(storedCompleted));
+        if (storedDevMode !== null) setIsDevModeState(storedDevMode === "true");
       } catch (error) {
         console.error("Error loading game stats from AsyncStorage:", error);
       } finally {
@@ -75,7 +82,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const setDevMode = async (enabled: boolean) => {
+    setIsDevModeState(enabled);
+    try {
+      await AsyncStorage.setItem(DEV_MODE_KEY, enabled ? "true" : "false");
+    } catch (e) {
+      console.error("Error saving dev mode:", e);
+    }
+  };
+
+  const toggleDevMode = async (): Promise<boolean> => {
+    const next = !isDevMode;
+    await setDevMode(next);
+    return next;
+  };
+
   const loseHeart = async (): Promise<boolean> => {
+    if (isDevMode) {
+      // In dev mode, hearts are never lost
+      return true;
+    }
     const nextHearts = Math.max(0, hearts - 1);
     setHeartsState(nextHearts);
     await saveHearts(nextHearts);
@@ -121,11 +147,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const completeLevel = async (levelId: string, score: number) => {
-    const isCompleted = score >= 75;
+    const isCompleted = isDevMode ? true : score >= 75;
     const existing = completedLevels[levelId];
     
     // Only update if not already completed, or if new score is higher
-    if (!existing || !existing.completed || score > existing.score) {
+    if (!existing || !existing.completed || score > existing.score || isDevMode) {
       const nextProgress = {
         ...completedLevels,
         [levelId]: { 
@@ -160,6 +186,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         exp,
         coins: exp, // Alias for backwards compatibility
         isLoading,
+        isDevMode,
         completedLevels,
         loseHeart,
         addHearts,
@@ -177,6 +204,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refillHeartsWithCoins: refillHeartsWithExp,
         completeLevel,
         resetStats,
+        setDevMode,
+        toggleDevMode,
       }}
     >
       {children}

@@ -34,7 +34,7 @@ export default function ExerciseSelectionScreen() {
   const category = (params.category as string) || "";
   const pathSelection = (params.pathSelection as string) || "beginner";
 
-  const { completedLevels } = useGame();
+  const { completedLevels, isDevMode } = useGame();
   const levels = useMemo(
     () => buildLevelsForCategory(category, pathSelection),
     [category, pathSelection]
@@ -51,7 +51,7 @@ export default function ExerciseSelectionScreen() {
 
   // Helper to check if level is unlocked
   const isLevelUnlocked = (index: number) => {
-    if (index === 0) return true;
+    if (isDevMode || index === 0) return true;
     const prevLevel = levels[index - 1];
     const prevProgress = completedLevels[prevLevel.levelId];
     return !!(prevProgress && prevProgress.completed);
@@ -70,7 +70,7 @@ export default function ExerciseSelectionScreen() {
       }
     }
     return active;
-  }, [levels, completedLevels]);
+  }, [levels, completedLevels, isDevMode]);
 
   // Calculate total stars collected
   const totalStars = useMemo(() => {

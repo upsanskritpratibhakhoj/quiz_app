@@ -1,8 +1,17 @@
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { COLORS, TYPOGRAPHY, SPACING } from "../../constants/theme";
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+  Modal,
+  TextInput,
+  Alert,
+} from "react-native";
+import { COLORS, TYPOGRAPHY, SPACING, RADII } from "../../constants/theme";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
+import { useGame } from "../../context/GameContext";
 
 interface StepPathProps {
   selectedPath: "beginner" | "placement" | "";
@@ -49,6 +58,50 @@ export default function StepPath({
   onSelectPath,
   onNext,
 }: StepPathProps) {
+  const { isDevMode, setDevMode } = useGame();
+  const [tapCount, setTapCount] = useState(0);
+  const [lastTapTime, setLastTapTime] = useState(0);
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleCreditsPress = () => {
+    const now = Date.now();
+    const nextCount = now - lastTapTime < 2500 ? tapCount + 1 : 1;
+    setLastTapTime(now);
+    setTapCount(nextCount);
+
+    if (nextCount >= 5) {
+      setTapCount(0);
+      if (isDevMode) {
+        setDevMode(false);
+        Alert.alert(
+          "God Mode Deactivated 🔒",
+          "Standard game rules and level locks have been restored."
+        );
+      } else {
+        setPasswordInput("");
+        setErrorMessage("");
+        setPasswordModalVisible(true);
+      }
+    }
+  };
+
+  const handleUnlockSubmit = () => {
+    if (passwordInput.trim() === "0000") {
+      setDevMode(true);
+      setPasswordModalVisible(false);
+      setPasswordInput("");
+      setErrorMessage("");
+      Alert.alert(
+        "God Mode Activated! 🚀",
+        "All quizzes and levels are now unlocked. All restrictions (75% score rule, hearts) are bypassed!"
+      );
+    } else {
+      setErrorMessage("गलत पासवर्ड! (Incorrect password. Master PIN is 0000)");
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Where would you like to start?</Text>
@@ -90,6 +143,12 @@ export default function StepPath({
       </View>
 
       <View style={styles.footer}>
+        <Pressable onPress={handleCreditsPress} hitSlop={10}>
+          <Text style={styles.creditsText}>
+            Developed by Jagdanand Jha and Jayesh Krishna
+            {isDevMode && " (🔓 God Mode ON)"}
+          </Text>
+        </Pressable>
         <Button
           title="Start Learning"
           variant="primary"
@@ -97,6 +156,63 @@ export default function StepPath({
           disabled={!selectedPath}
         />
       </View>
+
+      {/* Password Modal */}
+      <Modal
+        visible={passwordModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPasswordModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconBox}>
+              <Text style={styles.modalIcon}>🔐</Text>
+            </View>
+            <Text style={styles.modalTitle}>डेवलपर मोड (God Mode)</Text>
+            <Text style={styles.modalSubtitle}>
+              Enter master password to unlock all levels & bypass all restrictions.
+            </Text>
+
+            <TextInput
+              style={styles.pinInput}
+              value={passwordInput}
+              onChangeText={(text) => {
+                setPasswordInput(text);
+                setErrorMessage("");
+              }}
+              placeholder="••••"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="number-pad"
+              maxLength={4}
+              secureTextEntry
+              autoFocus
+              textAlign="center"
+            />
+
+            {errorMessage ? (
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            ) : null}
+
+            <View style={styles.modalButtonsRow}>
+              <Pressable
+                onPress={() => setPasswordModalVisible(false)}
+                style={styles.cancelButton}
+              >
+                <Text style={styles.cancelButtonText}>रद्द करें (Cancel)</Text>
+              </Pressable>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="Unlock 🚀"
+                  variant="primary"
+                  onPress={handleUnlockSubmit}
+                  disabled={passwordInput.length === 0}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -233,5 +349,101 @@ const styles = StyleSheet.create({
   footer: {
     paddingBottom: SPACING.md,
     paddingTop: 10,
+  },
+  creditsText: {
+    ...TYPOGRAPHY.bodyRegular,
+    fontSize: 12,
+    color: COLORS.textMuted,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 340,
+    backgroundColor: COLORS.white,
+    borderRadius: RADII.lg,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: COLORS.backgroundDark,
+    elevation: 10,
+  },
+  modalIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.background,
+    borderWidth: 2,
+    borderColor: COLORS.accent,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  modalIcon: {
+    fontSize: 26,
+  },
+  modalTitle: {
+    ...TYPOGRAPHY.heading,
+    fontSize: 18,
+    color: COLORS.text,
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  modalSubtitle: {
+    ...TYPOGRAPHY.bodyRegular,
+    fontSize: 13,
+    color: COLORS.textMuted,
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  pinInput: {
+    width: "100%",
+    height: 52,
+    backgroundColor: COLORS.background,
+    borderWidth: 2,
+    borderColor: COLORS.accent,
+    borderRadius: RADII.md,
+    fontSize: 24,
+    fontWeight: "bold",
+    color: COLORS.text,
+    letterSpacing: 10,
+    marginBottom: 8,
+  },
+  errorText: {
+    ...TYPOGRAPHY.bodyRegular,
+    fontSize: 12,
+    color: COLORS.error,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  modalButtonsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 12,
+    width: "100%",
+  },
+  cancelButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: RADII.md,
+    borderWidth: 2,
+    borderColor: COLORS.borderDark,
+    backgroundColor: COLORS.whiteDark,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelButtonText: {
+    ...TYPOGRAPHY.body,
+    fontSize: 13,
+    color: COLORS.textMuted,
   },
 });
