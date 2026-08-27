@@ -157,12 +157,29 @@ export default function QuizScreen() {
     setErrorPair(null);
 
     // Setup specific states
+    // Helper to filter out invalid placeholder option texts like "-", "--", "NA", null, empty
+    const isValidOptionText = (text: string | null | undefined): boolean => {
+      if (text === null || text === undefined) return false;
+      const trimmed = text.trim();
+      if (!trimmed) return false;
+      if (
+        trimmed === "-" ||
+        trimmed === "--" ||
+        trimmed === "—" ||
+        trimmed.toLowerCase() === "na" ||
+        trimmed.toLowerCase() === "n/a"
+      ) {
+        return false;
+      }
+      return true;
+    };
+
     // 1. Shuffled Options for choice-based questions
     if (isGridMultiSelect) {
       const items = (currentQuestion.Option_A || "")
         .split(",")
         .map((w) => w.trim())
-        .filter((w) => w.length > 0);
+        .filter((w) => isValidOptionText(w));
 
       const opts = items.map((w, idx) => ({
         key: w,
@@ -170,13 +187,20 @@ export default function QuizScreen() {
         label: String.fromCharCode(65 + (idx % 26)),
       }));
       setShuffledOptions([...opts].sort(() => Math.random() - 0.5));
+    } else if (quizType === "True_False") {
+      // True/False questions only ever have Option_A and Option_B
+      const opts = [
+        { key: "Option_A", text: currentQuestion.Option_A },
+        { key: "Option_B", text: currentQuestion.Option_B },
+      ].filter((opt) => isValidOptionText(opt.text));
+      setShuffledOptions(opts);
     } else {
       const opts = [
         { key: "Option_A", text: currentQuestion.Option_A },
         { key: "Option_B", text: currentQuestion.Option_B },
         { key: "Option_C", text: currentQuestion.Option_C },
         { key: "Option_D", text: currentQuestion.Option_D },
-      ].filter((opt) => opt.text !== null && opt.text !== undefined && opt.text !== "");
+      ].filter((opt) => isValidOptionText(opt.text));
       setShuffledOptions([...opts].sort(() => Math.random() - 0.5));
     }
 
@@ -502,17 +526,6 @@ export default function QuizScreen() {
     );
   }
 
-  // Helper arrays for options
-  const filterOptions = () => {
-    return [
-      { key: "Option_A", label: "A", text: currentQuestion.Option_A },
-      { key: "Option_B", label: "B", text: currentQuestion.Option_B },
-      { key: "Option_C", label: "C", text: currentQuestion.Option_C },
-      { key: "Option_D", label: "D", text: currentQuestion.Option_D },
-    ].filter((opt) => opt.text !== null && opt.text !== undefined && opt.text !== "");
-  };
-
-  const options = filterOptions();
 
   // Mascot expression based on correctness
   let mascotExpression: "happy" | "excited" | "guiding" = "happy";
